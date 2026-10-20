@@ -1,0 +1,13 @@
+# Compilação e Build
+build/
+cmake-build-*/
+bin/
+*.o
+
+# IDES e Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.clangd/
+compile_commands.json
