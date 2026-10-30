@@ -3,6 +3,11 @@ build/
 cmake-build-*/
 bin/
 *.o
+*.pcm
+.cache/
+gcm.cache/
+dado_burguer
+teste
 
 # IDES e Editores
 .idea/
