@@ -20,8 +20,8 @@ export{
     
     struct Avl_Pedidos{
         unique_ptr<NodoAvl> raiz;
-        int maior_cod = maior_codigo();
-        int menor_cod = menor_codigo();
+        int maior_cod = maior_codigo(*this);
+        int menor_cod = menor_codigo(*this);
         int total_insercao; //PASSO COMO PONTEIRO PARA A FUNÇÃO DE INSERÇÃO
         int total_rotacao; //PASSO COMO PONTEIRO PARA AS FUNCÕES DE ROTACAO
         int total_comparacao; //PASSO COMO PONTEIRO PARA A FUNCÃO DE BUSCA
@@ -37,9 +37,10 @@ export{
             novo->altura = 0;
             return novo;
         }
-        
+
         if (pedido.cod_pedido < raiz->cod_pedido)
             raiz->esq = inserir_pedido(raiz->esq, pedido, total_insercao, total_rotacao);
+            
         else if (pedido.cod_pedido > raiz->cod_pedido)
             raiz->dir = inserir_pedido(raiz->dir, pedido, total_insercao, total_rotacao);
         else
@@ -134,10 +135,16 @@ unique_ptr<NodoAvl> avl_rotacao_esquerda(unique_ptr<NodoAvl>& raiz, int &total_r
     return move(nova_raiz);
 }
 
-int maior_codigo(){
-
+int maior_codigo(Avl_Pedidos& avl){
+    while(avl.raiz->dir != nullptr){
+        avl.raiz = move(avl.raiz->dir);
+    }
+    return avl.raiz->cod_pedido;
 }
 
-int menor_codigo(){
-    
+int menor_codigo(Avl_Pedidos& avl){
+    while(avl.raiz->esq != nullptr){
+        avl.raiz = move(avl.raiz->esq);
+    }
+    return avl.raiz->cod_pedido; 
 }
