@@ -6,7 +6,6 @@ export module TAD_avl;
 
 using std::unique_ptr;
 using std::make_unique;
-using std::move;
 using std::string;
 
 export{
@@ -20,33 +19,55 @@ export{
     
     struct Avl_Pedidos{
         unique_ptr<NodoAvl> raiz;
-        int maior_cod = maior_codigo(*this);
-        int menor_cod = menor_codigo(*this);
-        int total_insercao; //PASSO COMO PONTEIRO PARA A FUNÇÃO DE INSERÇÃO
-        int total_rotacao; //PASSO COMO PONTEIRO PARA AS FUNCÕES DE ROTACAO
-        int total_comparacao; //PASSO COMO PONTEIRO PARA A FUNCÃO DE BUSCA
+        int maior_cod = 0;
+        int menor_cod = 0;
+        int total_insercao = 0; //PASSO COMO PONTEIRO PARA A FUNÇÃO DE INSERÇÃO
+        int total_rotacao = 0; //PASSO COMO PONTEIRO PARA AS FUNCÕES DE ROTACAO
+        int total_comparacao = 0; //PASSO COMO PONTEIRO PARA A FUNCÃO DE BUSCA
     };
 
-    unique_ptr<NodoAvl> inserir_pedido(unique_ptr<NodoAvl> &raiz, const NodoAvl& pedido, int &total_insercao, int &total_rotacao){
+    //PROTÓTIPOS DAS FUNÇÕES INTERNAS
+    int avl_altura(const unique_ptr<NodoAvl>& no);
+    void avl_atualizar_altura(const unique_ptr<NodoAvl>& no);
+    int avl_fb(const unique_ptr<NodoAvl>& raiz);
+    unique_ptr<NodoAvl> avl_rotacao_direita(unique_ptr<NodoAvl>& raiz, int &total_rotacao);
+    unique_ptr<NodoAvl> avl_rotacao_esquerda(unique_ptr<NodoAvl>& raiz, int &total_rotacao);
+    unique_ptr<NodoAvl> avl_reequilibrar(unique_ptr<NodoAvl>& raiz, int &total_rotacao);
+
+    unique_ptr<NodoAvl> inserir_pedido(unique_ptr<NodoAvl> &raiz, const NodoAvl& pedido, int &total_insercao, int &total_rotacao, int &total_comparacao, int& menor_cod, int& maior_cod){
+        if (total_insercao == 0) {
+            menor_cod = pedido.cod_pedido;
+            maior_cod = pedido.cod_pedido;
+        }
+        
         if (raiz == nullptr) {
             unique_ptr<NodoAvl> novo = make_unique<NodoAvl>();
             novo->cod_pedido = pedido.cod_pedido;
             novo->receita = pedido.receita;
             novo->esq = nullptr;
             novo->dir = nullptr;
-            novo->altura = 0;
+            novo->altura = 1;
+
+            if (pedido.cod_pedido < menor_cod) {
+                menor_cod = pedido.cod_pedido;
+            }
+            if (pedido.cod_pedido > maior_cod) {
+                maior_cod = pedido.cod_pedido;
+            }
+
+            total_insercao++;
             return novo;
         }
 
         if (pedido.cod_pedido < raiz->cod_pedido)
-            raiz->esq = inserir_pedido(raiz->esq, pedido, total_insercao, total_rotacao);
+            raiz->esq = inserir_pedido(raiz->esq, pedido, total_insercao, total_rotacao, total_comparacao, menor_cod, maior_cod);
             
         else if (pedido.cod_pedido > raiz->cod_pedido)
-            raiz->dir = inserir_pedido(raiz->dir, pedido, total_insercao, total_rotacao);
+            raiz->dir = inserir_pedido(raiz->dir, pedido, total_insercao, total_rotacao, total_comparacao, menor_cod, maior_cod);
         else
-            return move(raiz); //por que não pode ser só return raiz;?
+            return std::move(raiz); //por que não pode ser só return raiz;?
 
-        total_insercao++;
+        
         return avl_reequilibrar(raiz, total_rotacao);
     }
 
@@ -68,11 +89,12 @@ export{
 }
 
 int avl_altura(const unique_ptr<NodoAvl>& no){
-    if (no == nullptr) return -1;
+    if (no == nullptr) return 0;
     return no->altura;
 }
 
 void avl_atualizar_altura(const unique_ptr<NodoAvl>& no) {
+    if (no == nullptr) return;
     int ae = avl_altura(no->esq);
     int ad = avl_altura(no->dir);
     if (ae > ad){
@@ -103,48 +125,47 @@ unique_ptr<NodoAvl> avl_reequilibrar(unique_ptr<NodoAvl>& raiz, int &total_rotac
         return avl_rotacao_esquerda(raiz, total_rotacao);
     }
 
-    avl_atualizar_altura(raiz);
-    return move(raiz);
+    return std::move(raiz);
 }
 
 unique_ptr<NodoAvl> avl_rotacao_direita(unique_ptr<NodoAvl>& raiz, int &total_rotacao) {
-    unique_ptr<NodoAvl> nova_raiz = move(raiz->esq);
-    unique_ptr<NodoAvl> temp = move(nova_raiz->dir);
+    unique_ptr<NodoAvl> nova_raiz = std::move(raiz->esq);
+    unique_ptr<NodoAvl> temp = std::move(nova_raiz->dir);
 
-    nova_raiz->dir = move(raiz);
-    raiz = move(temp);
+    nova_raiz->dir = std::move(raiz);
+    nova_raiz->dir->esq = std::move(temp);
     
-    avl_atualizar_altura(raiz);
+    avl_atualizar_altura(nova_raiz->dir);
     avl_atualizar_altura(nova_raiz);
     total_rotacao++;
 
-    return move(nova_raiz);
+    return std::move(nova_raiz);
 }
 
 unique_ptr<NodoAvl> avl_rotacao_esquerda(unique_ptr<NodoAvl>& raiz, int &total_rotacao) {
-    unique_ptr<NodoAvl> nova_raiz = move(raiz->dir);
-    unique_ptr<NodoAvl> temp = move(nova_raiz->esq);
+    unique_ptr<NodoAvl> nova_raiz = std::move(raiz->dir);
+    unique_ptr<NodoAvl> temp = std::move(nova_raiz->esq);
 
-    nova_raiz->esq = move(raiz);
-    raiz = move(temp);
+    nova_raiz->esq = std::move(raiz);
+    nova_raiz->esq->dir = std::move(temp);
     
-    avl_atualizar_altura(raiz);
+    avl_atualizar_altura(nova_raiz->esq);
     avl_atualizar_altura(nova_raiz);
     total_rotacao++;
 
-    return move(nova_raiz);
+    return std::move(nova_raiz);
 }
 
 int maior_codigo(Avl_Pedidos& avl){
     while(avl.raiz->dir != nullptr){
-        avl.raiz = move(avl.raiz->dir);
+        avl.raiz = std::move(avl.raiz->dir);
     }
     return avl.raiz->cod_pedido;
 }
 
 int menor_codigo(Avl_Pedidos& avl){
     while(avl.raiz->esq != nullptr){
-        avl.raiz = move(avl.raiz->esq);
+        avl.raiz = std::move(avl.raiz->esq);
     }
     return avl.raiz->cod_pedido; 
 }
