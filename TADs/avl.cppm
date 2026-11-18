@@ -39,7 +39,7 @@ export{
             menor_cod = pedido.cod_pedido;
             maior_cod = pedido.cod_pedido;
         }
-        
+
         if (raiz == nullptr) {
             unique_ptr<NodoAvl> novo = make_unique<NodoAvl>();
             novo->cod_pedido = pedido.cod_pedido;
@@ -71,7 +71,7 @@ export{
         return avl_reequilibrar(raiz, total_rotacao);
     }
 
-    string busca_codigo(const unique_ptr<NodoAvl>& raiz, int cod_busca, int &total_comparacao){
+    string buscar_pedido(const unique_ptr<NodoAvl>& raiz, int cod_busca, int &total_comparacao){
         if (raiz == nullptr) return "";
         if (cod_busca == raiz->cod_pedido){
             total_comparacao++;
@@ -79,10 +79,10 @@ export{
         }
         if (cod_busca < raiz->cod_pedido){
             total_comparacao++;
-            return busca_codigo(raiz->esq, cod_busca, total_comparacao);
+            return buscar_pedido(raiz->esq, cod_busca, total_comparacao);
         } else {
             total_comparacao++;
-            return busca_codigo(raiz->dir, cod_busca, total_comparacao);
+            return buscar_pedido(raiz->dir, cod_busca, total_comparacao);
         }
     }
 
