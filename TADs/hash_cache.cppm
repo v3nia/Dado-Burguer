@@ -13,12 +13,12 @@ const int M = 16; //tamanho da tabela hash
 export{
     struct NodoHashCache {
         int cod_pedido;
-        std::string receita;
-        std::unique_ptr<NodoHashCache> prox;
+        string receita;
+        unique_ptr<NodoHashCache> prox;
     };
 
     struct HashCache_Pedidos{
-        std::unique_ptr<NodoHashCache> tabela[M];
+        unique_ptr<NodoHashCache> tabela[M];
         int n = 0; //número de elementos na tabela
         int m = M; //tamanho da tabela
 
@@ -30,7 +30,7 @@ export{
 
     //PROTÓTIPOS DAS FUNÇÕES INTERNAS
     int hash_multiplicativo(int chave, int m);
-    void inserir_hash(HashCache_Pedidos *t, int cod_pedido, const std::string& receita);
+    void inserir_hash(HashCache_Pedidos *t, int cod_pedido, const string& receita);
 
     //retorna a receita se o código do pedido estiver na tabela hash, se não estiver, busca na avl, insere na tabela hash e retorna uma string vazia
     string buscar_hash(HashCache_Pedidos *t, int cod_pedido) {
@@ -49,11 +49,11 @@ export{
         return "";
     }
 
-    void inserir_hash(HashCache_Pedidos *t, int cod_novo, const std::string& receita_nova) {
+    void inserir_hash(HashCache_Pedidos *t, int cod_novo, const string& receita_nova) {
         int i = hash_multiplicativo(cod_novo, t->m);
         
         //cria um novo nodo e insere no início da lista encadeada na posição i da tabela hash
-        auto novo = std::make_unique<NodoHashCache>();
+        auto novo = make_unique<NodoHashCache>();
         novo->cod_pedido = cod_novo;
         novo->receita = receita_nova;
 
