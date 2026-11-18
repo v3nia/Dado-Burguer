@@ -4,7 +4,7 @@
 void RegistrarLog(mimimimi){
     // logs né
 
-    return
+    return;
 }
 
 // talvez faça essa função em outro arquivo... veremos
@@ -17,11 +17,24 @@ void LoopGameplay(){
             // 3 heaps minimos vazios(carne, bacon, ovo) 
             // 4 contadores simples
             // para queijos, cebola e tomate
+        //Loop de turno:
+            // while de renderização
+            // confere heap minimo
+            // exibe pilha do hamburguer + lista receita
+            // + estoque (com turnos para estragar)
+            // + paciencia e turno atual
+            // ações:
+                // preparar ingrediente (escolhe n, o ou b e insere na min_heap)
+                // montar hamburguer (pega ingrediente e coloca no topo da pilha)
+                // 
 
-    return
+    return;
 }
 
-int main(argv[], argc[]){
+int main(int argc, char** argv){
+
+    // tratar_var(argv, argc)
+
     /*
     variáveis necessárias pra a main, como
     FILE, int, double time, et cetera.
