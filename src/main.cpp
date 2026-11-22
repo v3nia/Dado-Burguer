@@ -1,64 +1,31 @@
 // Arquivo principal do projeto
 #include <iostream>
 
-void RegistrarLog(mimimimi){
-    // logs né
+//TEMPORARIO
+import TAD_avl;
+import arquivos;
 
-    return;
-}
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Uso: " << argv[0] << " <pedidos>\n";
+        return 1;
+    }
 
-// talvez faça essa função em outro arquivo... veremos
-void LoopGameplay(){
-    // inicializacao das estruturas da sessao:
-        // tabela hash criada vazia (hash.cppm)
-        // fila criada com N clientes e paciência 
-            // máxima configurada (Fila_FIFO.cppm)
-        // INICIALIZACAO(): 
-            // 3 heaps minimos vazios(carne, bacon, ovo) 
-            // 4 contadores simples
-            // para queijos, cebola e tomate
-        //Loop de turno:
-            // while de renderização
-            // confere heap minimo
-            // exibe pilha do hamburguer + lista receita
-            // + estoque (com turnos para estragar)
-            // + paciencia e turno atual
-            // ações:
-                // preparar ingrediente (escolhe n, o ou b e insere na min_heap)
-                // montar hamburguer (pega ingrediente e coloca no topo da pilha)
-                // 
+    Avl_Pedidos avl;
+    Resultado_Carregamento res = carregar_pedidos(argv[1], avl);
 
-    return;
-}
+    if (!res.sucesso) return 1;
 
-int main(int argc, char** argv){
+    std::cout << "Leitura OK\n";
+    std::cout << "Tempo de carga: " << res.tempo_carregamento << " s\n";
+    std::cout << "Pares ignorados: " << res.pares_ignorados << "\n";
 
-    // tratar_var(argv, argc)
+    std::cout << "Total de insercoes: " << avl.total_insercao << "\n";
+    std::cout << "Altura da arvore: " << avl_altura(avl.raiz) << "\n";
+    std::cout << "Total de rotacoes: " << avl.total_rotacao << "\n";
+    std::cout << "Total de comparacoes: " << avl.total_comparacao << "\n";
+    std::cout << "Menor codigo: " << avl.menor_cod << "\n";
+    std::cout << "Maior codigo: " << avl.maior_cod << "\n";
 
-    /*
-    variáveis necessárias pra a main, como
-    FILE, int, double time, et cetera.
-    */
-
-    // lê o arquivo e coloca as receitas na AVL (avl.cppm)
-    // lê o histórico e coloca na lista contígua (historico.cppm)
-    // métricas colocadas em medicoes.log:
-        // func RegistrarLog (com fstream talvez)
-    //
-    
-    // LOOP DE TELA INICIAL
-        /* 
-        clicando em COMO JOGAR?
-            // tela estática bonitinha
-        */
-
-        /*
-        clicando em HISTORICO
-            // puxa as funcoes do historico.cppm
-        */
-
-        /*
-        clicando em NOVO JOGO
-            // LOOP DE GAMEPLAY (gameplay.cppm?)
-        */
+    return 0;
 }
