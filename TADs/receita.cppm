@@ -1,75 +1,93 @@
 module;
-#include<memory>
+#include <memory>
+#include <string>
 
 export module TAD_receita;
 
+using std::string;
 using std::unique_ptr;
 using std::make_unique;
-using std::move;
 
-export{
-    typedef struct Nodo {
-        unique_ptr<Nodo> prox;
-        char Ingrediente;
-    } Nodo;
+struct nodoReceita {
+    char Ingrediente;
+    unique_ptr<nodoReceita> prox;
+};
 
-    typedef struct Receita{
-        unique_ptr<Nodo> Ini;
-    } Receita;
+export struct Receita {
+    unique_ptr<nodoReceita> Ini;
+};
 
-    Receita inicializar(){
-        Receita receita;
-        receita->Ini = make_unique<Nodo>();
-        return receita;
-    }
+/* FUNÇÕES INTERNAS */
 
-    /* FUNÇÕES */
+static void inserirInicio(Receita &receita, char ingrediente) {
+    auto novo = make_unique<nodoReceita>(ingrediente, std::move(receita.Ini));
+    receita.Ini = std::move(novo);
+}
 
-    //void imprimir(const Receita &receita){};
-    
-    void inserirIninio(Receita &receita, Nodo &novo){
-        novo->prox = move(receita->Ini);
-        receita->Ini = move(novo);
-
-        return;
-    };
-
-    void inserirFim(Receita &receita, Nodo &novo){
-        Nodo* aux = receita->Ini.get();
-        if(aux == nullptr) return;
-
-        while(aux->prox != nullptr){
-            aux = aux->prox.get();
-        }
-
-        aux->prox = move(novo);
-
-        return;
-    };
-    
-    int tamanho(const Receita &receita){
-        Nodo* aux = receita->Ini.get();
-        if(aux == nullptr) return;
-        int contador = 0;
-
-        while(aux != nullptr){
-            contador++;
-            aux = aux->prox.get();
-        }
-
-        return contador;
-    };
-
-    void removerFim(Receita &receita){
-        Nodo* aux = receita->Ini.get();
-        if(aux == nullptr || aux->prox == nullptr) return;
-
-        while(aux->prox->prox != nullptr){
-            aux = aux->prox.get();
-        }
-
-        aux->prox = move(aux->prox->prox);
-
+static void inserirFim(Receita &receita, char ingrediente) {
+    auto novo = make_unique<nodoReceita>(ingrediente, nullptr);
+    nodoReceita* aux = receita.Ini.get();
+    if (aux == nullptr) {
+        receita.Ini = std::move(novo);
         return;
     }
+
+    while (aux->prox != nullptr) {
+        aux = aux->prox.get();
+    }
+
+    aux->prox = std::move(novo);
+}
+
+static void removerFim(Receita &receita) {
+    nodoReceita* aux = receita.Ini.get();
+
+    if (aux == nullptr) return;
+
+    if (aux->prox == nullptr) {
+        receita.Ini = nullptr;
+        return;
+    }
+
+    while (aux->prox->prox != nullptr) {
+        aux = aux->prox.get();
+    }
+
+    aux->prox = nullptr;
+}
+
+/* FUNÇÕES EXPORTADAS */
+
+export Receita construirReceita(const string &resultadoBusca) {
+    Receita receita;
+    for (char ingrediente : resultadoBusca) {
+        inserirFim(receita, ingrediente);
+    }
+    return receita;
+}
+
+export int tamanho(const Receita &receita) {
+    const nodoReceita* aux = receita.Ini.get();
+    if (aux == nullptr) return 0;
+    int contador = 0;
+
+    while (aux != nullptr) {
+        contador++;
+        aux = aux->prox.get();
+    }
+
+    return contador;
+}
+
+string stringInversaReceita(const unique_ptr<nodoReceita> &nodo) {
+    string resultado = "";
+    if(nodo->prox == nullptr) return resultado += nodo->Ingrediente;
+    resultado = stringInversaReceita(nodo->prox);
+
+    return resultado += nodo->Ingrediente;
+}
+
+export string stringReceita(const Receita &receita) {
+    if (receita.Ini == nullptr) return "";
+    return stringInversaReceita(receita.Ini);
 }
