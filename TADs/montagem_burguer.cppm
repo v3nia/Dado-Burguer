@@ -1,14 +1,10 @@
+#include <utility>
 module;
-
 #include <memory>
-
+import TAD_receita
 export module TAD_montagem;
-
-import TAD_receita;
-
 using std::unique_ptr; 
 using std::make_unique;
-using std::move;
 
 struct nodoPilha{
     char ingrediente;
@@ -26,14 +22,14 @@ export void iniciarMontagem(Pilha &p){
 export void empilhar(Pilha &p, char ingrediente){
     if (p.topo->ingrediente == 'z') return;
 
-    auto novo = make_unique<nodoPilha>(ingrediente, move(p.topo));
-    p.topo = move(novo);
+    auto novo = make_unique<nodoPilha>(ingrediente, std::move(p.topo));
+    p.topo = std::move(novo);
 };
 
 export void desempilhar(Pilha &p){
     if (p.topo->ingrediente == 'i') return;
 
-    p.topo = move(p.topo->prox);
+    p.topo = std::move(p.topo->prox);
 };
 
 string stringPilha(const Pilha &p){

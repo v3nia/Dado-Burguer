@@ -1,9 +1,7 @@
 module;
 #include <memory>
 #include <string>
-
 export module TAD_receita;
-
 using std::string;
 using std::unique_ptr;
 using std::make_unique;
