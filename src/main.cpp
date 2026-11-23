@@ -1,48 +1,31 @@
-// src/main.cpp  --  ESQUELETO (nao compilado). Serve para juntar os blocos A e B.
-//
-// Legenda dos comentarios:
-//   [IZA]    = ja existe no Bloco A (confira nomes/assinaturas reais)
-//   [COLEGA] = Bloco B (jogo, telas, loop); nomes de modulos/funcoes a combinar
-//   [COMBINAR] = decisao pendente entre os dois
-//   TODO     = falta escrever
-
+// src/main.cpp
 #include <iostream>
 #include <string>
+#include "timer.hpp"
 
 // ---- Modulos do Bloco A -------------------------------------------------
-import TAD_avl;               // [IZA] Avl_Pedidos
-import TAD_hash_cache;        // [IZA] HashCache_Pedidos (cache m = 16)
-import TAD_lista_contigua;    // [IZA] ListaContigua_Historico
-import arquivos;              // [IZA] carregar_pedidos, carregar_historico, anexar_historico
-import metricas;              // [IZA] Metricas, g_metricas, mostrarRelatorio, gravarLog
-import coleta_metricas;       // [IZA] coletarMetricasCarga, coletarMetricasPartida
-// import ordenacao_merge;    // so a tela do Historico usa (nao precisa aqui)
+import TAD_avl;
+import TAD_hash_cache;
+import TAD_lista_contigua;
+import arquivos;
+import metricas;
+import coleta_metricas;
+import tela_historico;
 
-// ---- Modulos do Bloco B (nomes a combinar) ------------------------------
-// import terminal;           // [COLEGA] limpar tela, ler tecla/opcao, desenhar caixas
-// import tela_inicial;       // [COLEGA] menu principal e tela "Como jogar"
-import tela_historico;     // [IZA]    tela do Historico (20 entradas, ASCII art)
-// import gameplay;           // [COLEGA] loop do jogo (receita sorteada, pilha, fila, heap...)
+// ---- Modulos do Bloco B -------------------------------------------------
+import renderizacao;
+import gameplay;
 
-// ---- Opcoes do menu inicial (so a main as conhece) ----------------------
 enum class OpcaoMenu { NOVO_JOGO, COMO_JOGAR, HISTORICO, SAIR };
 
-// =========================================================================
-// 1) Argumentos de linha de comando
-//    O enunciado define os argumentos (confira a ordem exata la):
-//    ex.: ./dado_burger <pedidos.txt> <historico.txt>
-//    Permitido pela secao 10 (E/S e argumentos).
-// =========================================================================
 struct Argumentos {
     std::string arquivo_pedidos;
     std::string arquivo_historico;
 };
 
-// Devolve false se faltar argumento (a main imprime o "Uso:" e sai com erro).
 static bool tratar_argumentos(int argc, char** argv, Argumentos& args) {
-    // TODO: conferir quantos argumentos o enunciado exige.
     if (argc < 3) {
-        std::cerr << "Uso: " << (argc > 0 ? argv[0] : "dado_burger")
+        std::cerr << "Uso: " << (argc > 0 ? argv[0] : "dado_burguer")
                   << " <arquivo_pedidos> <arquivo_historico>\n";
         return false;
     }
@@ -51,137 +34,166 @@ static bool tratar_argumentos(int argc, char** argv, Argumentos& args) {
     return true;
 }
 
-int main(int argc, char** argv) {
+static OpcaoMenu mostrar_menu(const PacoteSprites& sprites) {
+    ativarTerminal();
 
-    // =====================================================================
-    // 2) Argumentos
-    // =====================================================================
+    Timer timerAnim;
+    timer_iniciar(&timerAnim);
+    int tickAnim = 0;
+    bool precisaRedesenhar = true;
+
+    OpcaoMenu escolha = OpcaoMenu::SAIR;
+    bool escolheu = false;
+
+    while (!escolheu) {
+        if (timer_parar(&timerAnim) >= 0.25) {
+            tickAnim++;
+            timer_iniciar(&timerAnim);
+            precisaRedesenhar = true;
+        }
+
+        if (precisaRedesenhar) {
+            renderizarLogo(sprites, tickAnim);
+            precisaRedesenhar = false;
+        }
+
+        char tecla = lerTecla(50);
+        switch (tecla) {
+            case '1': escolha = OpcaoMenu::NOVO_JOGO;  escolheu = true; break;
+            case '2': escolha = OpcaoMenu::COMO_JOGAR; escolheu = true; break;
+            case '3': escolha = OpcaoMenu::HISTORICO;  escolheu = true; break;
+            case '0':
+            case 27:  escolha = OpcaoMenu::SAIR;       escolheu = true; break;
+            default:  break;
+        }
+    }
+
+    desativarTerminal();
+    std::cout << "\033[2J\033[H" << std::flush;
+    return escolha;
+}
+
+static void mostrar_como_jogar() {
+    std::cout << "\033[2J\033[H"
+              << "=== COMO JOGAR DADO-BURGUER ===\n\n"
+              << "Atenda os clientes da fila montando os lanches na ordem exata do pedido\n"
+              << "(de baixo para cima, partindo do pao base) antes que a paciencia acabe!\n\n"
+              << "-- CHAPA (Pereciveis - vencem com os turnos!) --\n"
+              << "  [1] Preparar Carne    [2] Preparar Ovo    [3] Preparar Bacon\n\n"
+              << "-- ESTOQUE (Perenes) --\n"
+              << "  [4] Repor Queijo Prato   [5] Repor Cheddar\n"
+              << "  [6] Repor Cebola         [7] Repor Tomate\n\n"
+              << "-- MONTAGEM DO LANCHE --\n"
+              << "  [C] Carne  [O] Ovo  [B] Bacon  [Q] Prato  [D] Cheddar\n"
+              << "  [E] Cebola [T] Tomate [Z] Pao Topo (fecha o lanche)\n"
+              << "  [Backspace] Desfazer ultima camada   [Enter] Entregar pedido\n"
+              << "  [0 ou ESC] Encerrar partida\n\n"
+              << "Pressione ENTER para voltar ao menu...";
+    std::string pausa;
+    std::getline(std::cin, pausa);
+}
+
+static std::string ler_nome_jogador() {
+    std::string nome;
+    while (true) {
+        std::cout << "\nDigite seu nome para registrar no historico: ";
+        if (!std::getline(std::cin, nome)) {
+            return "Jogador";
+        }
+        while (!nome.empty() && (nome.back() == '\r' || nome.back() == ' ' || nome.back() == '\t')) {
+            nome.pop_back();
+        }
+        if (!nome.empty()) {
+            return nome;
+        }
+        std::cout << "Nome invalido. Tente novamente.\n";
+    }
+}
+
+int main(int argc, char** argv) {
+    // 1) Argumentos
     Argumentos args;
     if (!tratar_argumentos(argc, argv, args)) return 1;
 
-    // =====================================================================
-    // 3) Objetos principais (donos de tudo: vivem durante o programa inteiro)
-    //    Sao passados por referencia para as telas e para o gameplay.
-    // =====================================================================
-    Avl_Pedidos            avl;       // [IZA] receitas por codigo
-    HashCache_Pedidos      cache;     // [IZA] cache (m = 16); [COMBINAR] zerar por partida?
-    ListaContigua_Historico historico;// [IZA] historico em memoria
-
-    // TODO: inicializar_listacontigua(historico);  (confira a assinatura real)
+    // 2) Estruturas principais
+    Avl_Pedidos             avl;
+    HashCache_Pedidos       cache;
+    ListaContigua_Historico historico;
     inicializar_listacontigua(historico);
-    
-    // Lista encadeada de receitas, pilha, fila, heap: [COLEGA] criam dentro do gameplay.
 
-    // =====================================================================
-    // 4) Carga dos arquivos (ANTES do menu, para o jogo ja ter dados)
-    //    4.1 pedidos -> AVL, com Timer (tempo de carga, secao 5.3)
-    // =====================================================================
-    // TODO: usar o Timer para guardar g_metricas.avl_tempo_carga.
-    //       (a carregar_pedidos ja faz cronometro interno? confira no seu arquivos.cppm)
+    // 3) Carga dos arquivos e sprites
     auto resultado_pedidos = carregar_pedidos(args.arquivo_pedidos, avl);
-    // TODO: se a carga falhou (arquivo inexistente/vazio), mostrar erro e return 1.
-    //       Sem receitas o jogo nao tem o que sortear.
-    if(!resultado_pedidos.sucesso){
+    if (!resultado_pedidos.sucesso) {
         std::cerr << "Erro ao carregar pedidos.\n";
         return 1;
     }
 
-    //    4.2 historico -> lista contigua
-    //        Arquivo inexistente = historico vazio (nao e erro fatal).
     auto resultado_historico = carregar_historico(args.arquivo_historico, historico);
-    // TODO: se resultado_historico.ignoradas > 0, avisar no terminal (linhas malformadas).
-    if(resultado_historico.ignoradas>0){
+    if (resultado_historico.ignoradas > 0) {
         std::cerr << "Aviso: " << resultado_historico.ignoradas
                   << " linha(s) do historico foram ignoradas por estarem malformadas.\n";
     }
 
-    //aqui não preciso atribuir diretamente as metricas, porque coletar_metricas_carga() já faz isso
+    PacoteSprites sprites;
+    if (!carregarTodosSprites(sprites)) {
+        std::cerr << "Aviso: um ou mais sprites em assets/ nao foram encontrados.\n";
+    }
 
-    // =====================================================================
-    // 5) Metricas da carga + primeira gravacao do medicoes.log
-    // =====================================================================
+    // 4) Metricas da carga + gravacao inicial do log
     g_metricas.carregou = true;
-    // TODO: g_metricas.avlTempoCarga = <tempo medido no passo 4.1>;
     g_metricas.avl_tempo_carga = resultado_pedidos.tempo_carregamento;
-
     coletar_metricas_carga(avl, historico, g_metricas);
     if (!gravar_log(g_metricas)) {
         std::cerr << "Aviso: nao foi possivel gravar medicoes.log\n";
     }
 
-    // =====================================================================
-    // 6) LOOP DA TELA INICIAL  (renderizacao e leitura de opcao: [COLEGA])
-    // =====================================================================
+    // 5) Loop do menu inicial
     bool rodando = true;
     while (rodando) {
-
-        // TODO [COLEGA]: desenhar o menu (ASCII art) e ler a opcao.
-        OpcaoMenu opcao = OpcaoMenu::HISTORICO;   // placeholder ate existir a tela
-        // opcao = tela_inicial::mostrar_menu();
+        OpcaoMenu opcao = mostrar_menu(sprites);
 
         switch (opcao) {
+            case OpcaoMenu::COMO_JOGAR:
+                mostrar_como_jogar();
+                break;
 
-        case OpcaoMenu::COMO_JOGAR:
-            // [COLEGA] tela estatica com as regras; volta ao menu ao apertar uma tecla.
-            // tela_inicial::mostrar_como_jogar();
-            break;
+            case OpcaoMenu::HISTORICO:
+                telaHistorico(historico, g_metricas);
+                break;
 
-        case OpcaoMenu::HISTORICO:
-            
-            // [IZA] tela do Historico: ordena uma COPIA da lista (nome ou pontuacao),
-            // mede o tempo, preenche g_metricas.ord* e chama gravarLog.
-            // tela_historico::mostrar(historico, g_metricas);
-            telaHistorico(historico, g_metricas);
+            case OpcaoMenu::NOVO_JOGO: {
+                resetar_metricas_partida(g_metricas);
+                avl.total_comparacao = 0;
+                limpar_hash(&cache);
 
-            
-            break;
+                int pontuacao = executarGameplay(avl, cache, g_metricas, sprites);
 
-        case OpcaoMenu::NOVO_JOGO:
-            // -----------------------------------------------------------------
-            // LOOP DE GAMEPLAY (modulo gameplay [COLEGA])
-            //
-            // ANTES de entrar: [COMBINAR]
-            //   - resetarMetricasPartida(g_metricas);
-            resetar_metricas_partida(g_metricas);
-            //   - zerar contadores da AVL e da hash para a partida comecar do zero
-            avl.total_comparacao = 0;
-            limpar_hash(&cache);
-            //     (decisao de politica: cache zerado por partida?)
-            //   - pedir o nome do jogador (vai para o historico)
-            //
-            // Dentro do gameplay, a cada pedido sorteado:
-            //   1. sortear codigo no intervalo [menor_cod, maior_cod] da AVL
-            //   2. buscar na cache (hash): hit -> usa a receita
-            //   3. miss -> buscar na AVL (com Timer somando em g_metricas.avlTempoBuscas),
-            //      inserir na cache, devolver a receita
-            //   4. receita vai para a lista encadeada de preparo do [COLEGA]
-            //
-            // gameplay::jogar(avl, cache, historico, g_metricas) devolve a pontuacao.
-            //
-            // DEPOIS de sair: [COMBINAR]
-            //   - coletarMetricasPartida(avl, cache, g_metricas);
-            coletar_metricas_partida(avl, cache, g_metricas);
-            //   - mostrarRelatorio(g_metricas);   // na tela (secao 5.2)
-            mostrar_relatorio(g_metricas);
-            //   - gravarLog(g_metricas);          // e no medicoes.log
-            gravar_log(g_metricas);
-            //   - pedir/confirmar o nome e gravar no historico:
-            //       anexar_historico(args.arquivo_historico, nome, pontuacao);
-            //       e inserir tambem na lista em memoria, para o Historico
-            //       ja mostrar a partida nova sem reabrir o programa.
-            // -----------------------------------------------------------------
-            break;
+                coletar_metricas_partida(avl, cache, g_metricas);
 
-        case OpcaoMenu::SAIR:
-            rodando = false;
-            break;
+                std::cout << "\033[2J\033[H"
+                          << "=== FIM DE PARTIDA ===\n"
+                          << "Pontuacao final: " << pontuacao << " pts\n\n";
+                mostrar_relatorio(g_metricas);
+                gravar_log(g_metricas);
+
+                std::string nome = ler_nome_jogador();
+                if (anexar_historico(args.arquivo_historico, nome, pontuacao)) {
+                    NodoListaContigua novo{nome, pontuacao};
+                    inserir_listacontigua(historico, novo, tamanho_listacontigua(historico));
+                    std::cout << "Pontuacao salva no historico!\n";
+                }
+
+                std::cout << "\nPressione ENTER para voltar ao menu...";
+                std::string pausa;
+                std::getline(std::cin, pausa);
+                break;
+            }
+
+            case OpcaoMenu::SAIR:
+                rodando = false;
+                break;
         }
     }
 
-    // =====================================================================
-    // 7) Encerramento
-    //    Os unique_ptr liberam AVL, cache e lista automaticamente ao sair do main.
-    //    Se o usuario sair sem jogar, o medicoes.log ja tem o bloco de carga (passo 5).
-    // =====================================================================
     return 0;
 }

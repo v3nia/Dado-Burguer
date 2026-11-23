@@ -33,7 +33,7 @@ export void desempilhar(Pilha &p){
     p.topo = std::move(p.topo->prox);
 };
 
-string stringPilha(const Pilha &p){
+export string stringPilha(const Pilha &p){
     string resultado;
     auto aux = p.topo.get();
 

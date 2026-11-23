@@ -311,7 +311,7 @@ export void renderizarLogo(const PacoteSprites& sprites, int tickAnim) {
         tela += f.linhas[i] + "\033[0m\033[K\n";
     }
     tela += "\033[K\n";
-    tela += "  \033[1;33m[1]\033[0m Jogar   \033[1;33m[2]\033[0m Historico   \033[1;33m[0]\033[0m Sair\033[K\n";
+    tela += "  \033[1;33m[1]\033[0m Novo Jogo   \033[1;33m[2]\033[0m Como Jogar   \033[1;33m[3]\033[0m Historico   \033[1;33m[0]\033[0m Sair\033[K\n";
     tela += "\033[J";
 
     std::cout << tela << std::flush;
