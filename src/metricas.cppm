@@ -1,130 +1,168 @@
 module;
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 
 export module metricas;
 
 // =====================================================================
 // metricas: guarda todas as medições exigidas (seção 5 da especificação)
 // e grava o medicoes.log. Este módulo NÃO importa AVL, hash nem histórico
-// (evita dependência circular). A cópia dos contadores das estruturas
-// para cá é feita no módulo coleta_metricas.
+// (evita dependência circular). A cópia e o cálculo das métricas
+// vindas das estruturas são feitos no módulo coleta_metricas.
 // =====================================================================
 
 export {
 
-struct Metricas {
-    // --- AVL: carregamento (§5.1) ---
-    long long avlNos          = 0;
-    int       avlAltura       = 0;      // árvore vazia = 0, só raiz = 1
-    long long avlRotacoes     = 0;      // rotação dupla = 2 simples
-    double    avlTempoCarga   = 0.0;    // segundos
+    struct Metricas {
+        // --- AVL: carregamento (§5.1) ---
+        long long avl_nos          = 0;
+        int       avl_altura       = 0;      // árvore vazia = 0, só raiz = 1
+        long long avl_rotacoes     = 0;      // rotação dupla = 2 simples
+        double    avl_tempo_carga   = 0.0;    // segundos
 
-    // --- Histórico: contexto (§5.1) ---
-    int       histEntradas    = 0;
+        // --- Histórico: contexto (§5.1) ---
+        int       hist_entradas    = 0;
 
-    // --- AVL: buscas durante a partida (§5.2) ---
-    long long avlBuscas       = 0;
-    long long avlComparacoes  = 0;
-    double    avlTempoBuscas  = 0.0;    // acumulado, em segundos
+        // --- AVL: buscas durante a partida (§5.2) ---
+        long long avl_buscas       = 0;
+        long long avl_comparacoes  = 0;
+        double    avl_tempo_buscas  = 0.0;    // acumulado, em segundos
 
-    // --- Tabela hash (§5.2) ---
-    int       hashM           = 0;      // tamanho da tabela
-    long long hashN           = 0;      // entradas ocupadas
-    long long hashHits        = 0;
-    long long hashMisses      = 0;
-    long long hashColisoes    = 0;
+        // --- Tabela hash (§5.2) ---
+        int       hash_m           = 0;      // tamanho da tabela
+        long long hash_n           = 0;      // entradas ocupadas
+        long long hash_hits        = 0;
+        long long hash_miss        = 0;
+        long long hash_colisoes    = 0;
+        double    hash_taxa_acerto = 0.0;    // em porcentagem (0.0 a 100.0)
 
-    // --- Ordenação do histórico (atualizada a cada acesso à tela) ---
-    int       ordTamanho      = 0;
-    int       ordAcessos      = 0;
-    double    ordTempoNome    = -1.0;   // -1 = ainda não medido
-    double    ordTempoPontos  = -1.0;
+        // --- Ordenação do histórico (atualizada a cada acesso à tela) ---
+        int       ord_tamanho      = 0;
+        int       ord_acessos      = 0;
+        double    ord_tempo_nome    = -1.0;   // -1 = ainda não medido
+        double    ord_tempo_pontos  = -1.0;
 
-    // --- controle de quais blocos já podem aparecer no log ---
-    bool      carregou        = false;  // true ao fim do carregamento
-    bool      partidaTerminou = false;  // true ao encerrar a partida
-};
+        // --- controle de quais blocos já podem aparecer no log ---
+        bool      carregou        = false;  // true ao fim do carregamento
+        bool      partida_terminou = false;  // true ao encerrar a partida
+    };
 
 // Instância global compartilhada por todos os módulos.
 Metricas g_metricas;
 
 // Zera as métricas de partida. Chame ao INICIAR cada partida.
 // Não mexe nas métricas de carregamento nem nas de ordenação.
-void resetarMetricasPartida(Metricas& m) {
-    m.avlBuscas       = 0;
-    m.avlComparacoes  = 0;
-    m.avlTempoBuscas  = 0.0;
-    m.hashN           = 0;
-    m.hashHits        = 0;
-    m.hashMisses      = 0;
-    m.hashColisoes    = 0;
-    m.partidaTerminou = false;
+void resetar_metricas_partida(Metricas& m) {
+    m.avl_buscas       = 0;
+    m.avl_comparacoes  = 0;
+    m.avl_tempo_buscas  = 0.0;
+    m.hash_n           = 0;
+    m.hash_hits        = 0;
+    m.hash_miss        = 0;
+    m.hash_colisoes    = 0;
+    m.hash_taxa_acerto = 0.0;
+    m.partida_terminou = false;
 }
 
-// Reescreve o medicoes.log inteiro (cria ou sobrescreve). Chame:
-//  1) após o carregamento, 2) ao fim de cada partida,
-//  3) a cada acesso à tela de Histórico.
-// Devolve false se não conseguiu abrir o arquivo.
-bool gravarLog(const Metricas& m, const char* algoritmo = "Merge Sort") {
-    std::ofstream out("medicoes.log");
-    if (!out.is_open()) return false;
+void escrever_relatorio(std::ostream& out, const Metricas& m, const char* algoritmo){
+
+    auto flags = out.flags();
+    auto prec  = out.precision();
 
     out << std::fixed;
     out << "=== RELATORIO DE DESEMPENHO ===\n";
 
     if (m.carregou) {
         out << "-- AVL: carregamento --\n"
-            << "Nos inseridos: " << m.avlNos << "\n"
-            << "Altura resultante: " << m.avlAltura << "\n"
-            << "Rotacoes (insercao): " << m.avlRotacoes << "\n"
+            << "Nos inseridos: " << m.avl_nos << "\n"
+            << "Altura resultante: " << m.avl_altura << "\n"
+            << "Rotacoes (insercao): " << m.avl_rotacoes << "\n"
             << "Tempo de carregamento: " << std::setprecision(6)
-            << m.avlTempoCarga << " s\n"
+            << m.avl_tempo_carga << " s\n"
             << "-- Historico: carregamento --\n"
-            << "Entradas carregadas: " << m.histEntradas << "\n";
+            << "Entradas carregadas: " << m.hist_entradas << "\n";
     }
 
-    if (m.partidaTerminou) {
-        // proteções contra divisão por zero (média = 0 se não houve busca)
-        double media = (m.avlBuscas > 0)
-            ? static_cast<double>(m.avlComparacoes) / m.avlBuscas : 0.0;
-        long long acessos = m.hashHits + m.hashMisses;
-        double taxa = (acessos > 0) ? 100.0 * m.hashHits / acessos : 0.0;
-        double lambda = (m.hashM > 0)
-            ? static_cast<double>(m.hashN) / m.hashM : 0.0;
+    if (m.partida_terminou) {
+        double media = 0.0;
+
+
+        if (m.avl_buscas > 0) {
+            media = static_cast<double>(m.avl_comparacoes) / m.avl_buscas;
+        } else {
+            media = 0.0;
+        }
+
+        double tempo_medio_busca = 0.0;
+        if (m.avl_buscas > 0) {
+            tempo_medio_busca = m.avl_tempo_buscas / static_cast<double>(m.avl_buscas);
+        } else {
+            tempo_medio_busca = 0.0;
+        }
+
+        double lambda = 0.0;
+        if (m.hash_m > 0) {
+            lambda = static_cast<double>(m.hash_n) / m.hash_m;
+        } else {
+            lambda = 0.0;
+        }
 
         out << "-- AVL: buscas durante a partida --\n"
-            << "Total de buscas: " << m.avlBuscas << "\n"
-            << "Total de comparacoes: " << m.avlComparacoes << "\n"
+            << "Total de buscas: " << m.avl_buscas << "\n"
+            << "Total de comparacoes: " << m.avl_comparacoes << "\n"
             << "Media de comparacoes por busca: " << std::setprecision(2)
             << media << "\n"
             << "Tempo total acumulado: " << std::setprecision(6)
-            << m.avlTempoBuscas << " s\n"
+            << m.avl_tempo_buscas << " s\n"
             << "-- Tabela hash --\n"
-            << "Tamanho (m): " << m.hashM << "\n"
-            << "Entradas ocupadas (n): " << m.hashN << "\n"
-            << "Fator de carga (lambda): " << std::setprecision(2)
+            << "Tamanho (m): " << m.hash_m << "\n"
+            << "Entradas ocupadas (n): " << m.hash_n << "\n"
+            << "Fator de carga (lambda): " << std::setprecision(4)
             << lambda << "\n"
-            << "Total de hits: " << m.hashHits << "\n"
-            << "Total de misses: " << m.hashMisses << "\n"
-            << "Taxa de acerto: " << std::setprecision(1) << taxa << "%\n"
-            << "Total de colisoes: " << m.hashColisoes << "\n";
+            << "Total de hits: " << m.hash_hits << "\n"
+            << "Total de misses: " << m.hash_miss << "\n"
+            << "Taxa de acerto: " << std::setprecision(1)
+            << m.hash_taxa_acerto << "%\n"
+            << "Total de colisoes: " << m.hash_colisoes << "\n";
     }
 
-    if (m.ordAcessos > 0) {
+    if (m.ord_acessos > 0) {
         out << "-- Ordenacao do historico (ao acessar Historico) --\n"
-            << "Tamanho: " << m.ordTamanho << " entradas\n"
-            << "Acessos ao Historico: " << m.ordAcessos << "\n";
-        if (m.ordTempoNome >= 0)
+            << "Tamanho: " << m.ord_tamanho << " entradas\n"
+            << "Acessos ao Historico: " << m.ord_acessos << "\n";
+        if (m.ord_tempo_nome >= 0) {
             out << algoritmo << " (por nome): " << std::setprecision(6)
-                << m.ordTempoNome << " s\n";
-        if (m.ordTempoPontos >= 0)
+                << m.ord_tempo_nome << " s\n";
+        }
+        if (m.ord_tempo_pontos >= 0) {
             out << algoritmo << " (por pontuacao): " << std::setprecision(6)
-                << m.ordTempoPontos << " s\n";
+                << m.ord_tempo_pontos << " s\n";
+        }
     }
+
+    out.flags(flags);
+    out.precision(prec);
 
     out << "================================\n";
+}
+
+// Reescreve o medicoes.log inteiro (cria ou sobrescreve). Chame:
+//  1) após o carregamento, 2) ao fim de cada partida,
+//  3) a cada acesso à tela de Histórico.
+// Devolve false se não conseguiu abrir o arquivo.
+bool gravar_log(const Metricas& m, const char* algoritmo = "Merge Sort") {
+    std::ofstream out("medicoes.log");
+    if (!out.is_open()) {
+        return false;
+    }
+
+    escrever_relatorio(out, m, algoritmo);    
     return true;
+}
+
+void mostrar_relatorio(const Metricas& m, const char* algoritmo = "Merge Sort") {
+    escrever_relatorio(std::cout, m, algoritmo);
 }
 
 } // export

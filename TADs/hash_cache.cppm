@@ -67,9 +67,9 @@ export{
         t->n++;
     }
 
-    float taxa_acerto(HashCache_Pedidos *t) {
-        if (t->hit + t->miss == 0) return 0.0f; //trata o caso de divisão por zero quando não houve buscas
-        float resultado = (float)t->hit / (t->hit + t->miss);
+    float taxa_acerto(int hit, int miss) {
+        if (hit + miss == 0) return 0.0f; //trata o caso de divisão por zero quando não houve buscas
+        float resultado = (float)hit / (hit + miss);
         return resultado; //NA EXIBIÇÃO, MULTIPLICAR POR 100 PARA OBTER A TAXA EM PORCENTAGEM
     }
 
