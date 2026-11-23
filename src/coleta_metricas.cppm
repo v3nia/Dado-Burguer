@@ -11,7 +11,7 @@ export module coleta_metricas;
 // =====================================================================
 
 import TAD_avl;
-import TAD_hash;
+import TAD_hash_cache;
 import TAD_lista_contigua;
 import metricas;
 
@@ -25,7 +25,7 @@ void coletarMetricasCarga(const Avl_Pedidos& avl,
                           Metricas& m) {
     m.avlNos       = avl.total_insercao;
     m.avlRotacoes  = avl.total_rotacao;
-    m.avlAltura    = altura(avl.raiz);   // SUA função de altura (vazia = 0, raiz = 1)
+    m.avlAltura    = avl_altura(avl.raiz);   // SUA função de altura (vazia = 0, raiz = 1)
     m.histEntradas = hist.tamanho;
 }
 

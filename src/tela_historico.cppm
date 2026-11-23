@@ -2,12 +2,13 @@ module;
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <timer.hpp>
 
 export module tela_historico;
 //FOI FEITO INTEIRAMENTE COM O CLAUDE - só conferi e mudei os parametros dos nomes 'padrões' para os nossos
 import TAD_lista_contigua;
 import ordenacao_merge;
-import timer;       // ajuste: como você expôs o Timer do professor
+//import timer;       // ajuste: como você expôs o Timer do professor
 import metricas;    // ajuste: struct Metricas e gravarLog()
 
 // Lê uma opção inteira; devolve -1 se a entrada for inválida.

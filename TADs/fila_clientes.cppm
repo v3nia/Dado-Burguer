@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <memory>
 export module TAD_cliente;
 import TAD_receita;
@@ -22,7 +23,7 @@ export struct FilaClientes {
 };
 
 export void enfileirar(FilaClientes& fila, Receita pedido, int paciencia) {
-    auto novoNodo = make_unique<nodoFila>(Cliente{pedido, paciencia}, nullptr);
+    auto novoNodo = make_unique<nodoFila>(Cliente{std::move(pedido), paciencia}, nullptr);
 
     if (!fila.inicio) {
         fila.inicio = std::move(novoNodo);

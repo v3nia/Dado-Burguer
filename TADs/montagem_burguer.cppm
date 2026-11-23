@@ -1,10 +1,11 @@
-#include <utility>
 module;
 #include <memory>
-import TAD_receita
+#include <string>
 export module TAD_montagem;
+import TAD_receita;
 using std::unique_ptr; 
 using std::make_unique;
+using std::string;
 
 struct nodoPilha{
     char ingrediente;
@@ -36,7 +37,7 @@ string stringPilha(const Pilha &p){
     string resultado;
     auto aux = p.topo.get();
 
-    while(aux->prox ==  && aux->ingrediente != 'i'){
+    while(aux->prox != nullptr && aux->ingrediente != 'i'){
         resultado += aux->ingrediente;
         aux = aux->prox.get();
     }
