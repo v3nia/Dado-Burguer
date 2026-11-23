@@ -21,10 +21,9 @@ export{
         int j = meio + 1;
         int k = inicio;
 
-        if (criterio == CriterioOrdenacao::POR_PONTOS) { //ordenar por pontuação
+        if (criterio == CriterioOrdenacao::POR_PONTOS) { // decrescente por pontuação
             while (i <= meio && j <= fim) {
-                //se as pontuacoes forem iguais, o que chegou na pontuacao primeiro, vai primeiro
-                if (aux.elementos[i].pontuacao <= aux.elementos[j].pontuacao) {
+                if (aux.elementos[i].pontuacao >= aux.elementos[j].pontuacao) {
                     lista.elementos[k++] = aux.elementos[i++];
                 } else {
                     lista.elementos[k++] = aux.elementos[j++];

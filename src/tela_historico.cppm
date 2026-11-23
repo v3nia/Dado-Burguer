@@ -2,13 +2,12 @@ module;
 #include <iostream>
 #include <string>
 #include <cstdlib>
-#include <timer.hpp>
+#include "timer.hpp"
 
 export module tela_historico;
 //FOI FEITO INTEIRAMENTE COM O CLAUDE - só conferi e mudei os parametros dos nomes 'padrões' para os nossos
 import TAD_lista_contigua;
-import ordenacao_merge;
-//import timer;       // ajuste: como você expôs o Timer do professor
+import ordenacao_merge;     
 import metricas;    // ajuste: struct Metricas e gravarLog()
 
 // Lê uma opção inteira; devolve -1 se a entrada for inválida.
@@ -60,12 +59,12 @@ if (opcao == 1 || opcao == 2) {
     double tempo = ordenarEMedir(hist, criterio, copia);
 
     // métricas: a medição é repetida a cada acesso
-    m.ordTamanho = hist.tamanho;
-    m.ordAcessos++;
+    m.ord_tamanho = hist.tamanho;
+    m.ord_acessos++;
     if (opcao == 1) {
-        m.ordTempoNome = tempo;
+        m.ord_tempo_nome = tempo;
     } else {
-        m.ordTempoPontos = tempo;
+        m.ord_tempo_pontos = tempo;
     }
 
     // exibição (fora do cronômetro): só as primeiras N entradas
@@ -79,7 +78,7 @@ if (opcao == 1 || opcao == 2) {
     }
     std::cout << "Tempo de ordenacao (Merge Sort): " << tempo << " s\n";
 
-    gravarLog(m);   // regrava o medicoes.log com o bloco atualizado
+    gravar_log(m);   // regrava o medicoes.log com o bloco atualizado
 } else if (opcao != 0) {
     std::cout << "Opcao invalida.\n";
 }
