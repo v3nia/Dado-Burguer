@@ -73,6 +73,21 @@ export{
         return resultado; //NA EXIBIÇÃO, MULTIPLICAR POR 100 PARA OBTER A TAXA EM PORCENTAGEM
     }
 
+    void limpar_hash(HashCache_Pedidos *t) {
+        if (t == nullptr) {
+            return;
+        }
+
+        for (int i = 0; i < t->m; i++) {
+            t->tabela[i] = nullptr;
+        }
+
+        t->n = 0;
+        t->hit = 0;
+        t->miss = 0;
+        t->colisoes = 0;
+    }
+
 }
 
 int hash_multiplicativo(int chave, int m) {
