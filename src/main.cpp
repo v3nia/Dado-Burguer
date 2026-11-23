@@ -21,7 +21,7 @@ import coleta_metricas;       // [IZA] coletarMetricasCarga, coletarMetricasPart
 // ---- Modulos do Bloco B (nomes a combinar) ------------------------------
 // import terminal;           // [COLEGA] limpar tela, ler tecla/opcao, desenhar caixas
 // import tela_inicial;       // [COLEGA] menu principal e tela "Como jogar"
-// import tela_historico;     // [IZA]    tela do Historico (20 entradas, ASCII art)
+import tela_historico;     // [IZA]    tela do Historico (20 entradas, ASCII art)
 // import gameplay;           // [COLEGA] loop do jogo (receita sorteada, pilha, fila, heap...)
 
 // ---- Opcoes do menu inicial (so a main as conhece) ----------------------
@@ -66,32 +66,46 @@ int main(int argc, char** argv) {
     Avl_Pedidos            avl;       // [IZA] receitas por codigo
     HashCache_Pedidos      cache;     // [IZA] cache (m = 16); [COMBINAR] zerar por partida?
     ListaContigua_Historico historico;// [IZA] historico em memoria
+
     // TODO: inicializar_listacontigua(historico);  (confira a assinatura real)
-    // TODO: inicializar a cache com a funcao real do seu modulo hash.
+    inicializar_listacontigua(historico);
+    
     // Lista encadeada de receitas, pilha, fila, heap: [COLEGA] criam dentro do gameplay.
 
     // =====================================================================
     // 4) Carga dos arquivos (ANTES do menu, para o jogo ja ter dados)
     //    4.1 pedidos -> AVL, com Timer (tempo de carga, secao 5.3)
     // =====================================================================
-    // TODO: usar o Timer para guardar g_metricas.avlTempoCarga.
+    // TODO: usar o Timer para guardar g_metricas.avl_tempo_carga.
     //       (a carregar_pedidos ja faz cronometro interno? confira no seu arquivos.cppm)
     auto resultado_pedidos = carregar_pedidos(args.arquivo_pedidos, avl);
     // TODO: se a carga falhou (arquivo inexistente/vazio), mostrar erro e return 1.
     //       Sem receitas o jogo nao tem o que sortear.
+    if(!resultado_pedidos.sucesso){
+        std::cerr << "Erro ao carregar pedidos.\n";
+        return 1;
+    }
 
     //    4.2 historico -> lista contigua
     //        Arquivo inexistente = historico vazio (nao e erro fatal).
     auto resultado_historico = carregar_historico(args.arquivo_historico, historico);
     // TODO: se resultado_historico.ignoradas > 0, avisar no terminal (linhas malformadas).
+    if(resultado_historico.ignoradas>0){
+        std::cerr << "Aviso: " << resultado_historico.ignoradas
+                  << " linha(s) do historico foram ignoradas por estarem malformadas.\n";
+    }
+
+    //aqui não preciso atribuir diretamente as metricas, porque coletar_metricas_carga() já faz isso
 
     // =====================================================================
     // 5) Metricas da carga + primeira gravacao do medicoes.log
     // =====================================================================
     g_metricas.carregou = true;
     // TODO: g_metricas.avlTempoCarga = <tempo medido no passo 4.1>;
-    coletarMetricasCarga(avl, historico, g_metricas);
-    if (!gravarLog(g_metricas)) {
+    g_metricas.avl_tempo_carga = resultado_pedidos.tempo_carregamento;
+
+    coletar_metricas_carga(avl, historico, g_metricas);
+    if (!gravar_log(g_metricas)) {
         std::cerr << "Aviso: nao foi possivel gravar medicoes.log\n";
     }
 
@@ -102,7 +116,7 @@ int main(int argc, char** argv) {
     while (rodando) {
 
         // TODO [COLEGA]: desenhar o menu (ASCII art) e ler a opcao.
-        OpcaoMenu opcao = OpcaoMenu::SAIR;   // placeholder ate existir a tela
+        OpcaoMenu opcao = OpcaoMenu::HISTORICO;   // placeholder ate existir a tela
         // opcao = tela_inicial::mostrar_menu();
 
         switch (opcao) {
@@ -113,9 +127,13 @@ int main(int argc, char** argv) {
             break;
 
         case OpcaoMenu::HISTORICO:
+            
             // [IZA] tela do Historico: ordena uma COPIA da lista (nome ou pontuacao),
             // mede o tempo, preenche g_metricas.ord* e chama gravarLog.
             // tela_historico::mostrar(historico, g_metricas);
+            telaHistorico(historico, g_metricas);
+
+            
             break;
 
         case OpcaoMenu::NOVO_JOGO:
@@ -124,7 +142,10 @@ int main(int argc, char** argv) {
             //
             // ANTES de entrar: [COMBINAR]
             //   - resetarMetricasPartida(g_metricas);
+            resetar_metricas_partida(g_metricas);
             //   - zerar contadores da AVL e da hash para a partida comecar do zero
+            avl.total_comparacao = 0;
+            limpar_hash(&cache);
             //     (decisao de politica: cache zerado por partida?)
             //   - pedir o nome do jogador (vai para o historico)
             //
@@ -139,8 +160,11 @@ int main(int argc, char** argv) {
             //
             // DEPOIS de sair: [COMBINAR]
             //   - coletarMetricasPartida(avl, cache, g_metricas);
+            coletar_metricas_partida(avl, cache, g_metricas);
             //   - mostrarRelatorio(g_metricas);   // na tela (secao 5.2)
+            mostrar_relatorio(g_metricas);
             //   - gravarLog(g_metricas);          // e no medicoes.log
+            gravar_log(g_metricas);
             //   - pedir/confirmar o nome e gravar no historico:
             //       anexar_historico(args.arquivo_historico, nome, pontuacao);
             //       e inserir tambem na lista em memoria, para o Historico
