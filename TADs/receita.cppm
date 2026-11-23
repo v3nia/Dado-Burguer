@@ -17,12 +17,12 @@ export struct Receita {
 
 /* FUNÇÕES INTERNAS */
 
-static void inserirInicio(Receita &receita, char ingrediente) {
+export void inserirInicio(Receita &receita, char ingrediente) {
     auto novo = make_unique<nodoReceita>(ingrediente, std::move(receita.Ini));
     receita.Ini = std::move(novo);
 }
 
-static void inserirFim(Receita &receita, char ingrediente) {
+export void inserirFim(Receita &receita, char ingrediente) {
     auto novo = make_unique<nodoReceita>(ingrediente, nullptr);
     nodoReceita* aux = receita.Ini.get();
     if (aux == nullptr) {
@@ -37,7 +37,7 @@ static void inserirFim(Receita &receita, char ingrediente) {
     aux->prox = std::move(novo);
 }
 
-static void removerFim(Receita &receita) {
+export void removerFim(Receita &receita) {
     nodoReceita* aux = receita.Ini.get();
 
     if (aux == nullptr) return;
