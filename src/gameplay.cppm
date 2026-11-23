@@ -1,21 +1,16 @@
 module;
 
-#ifdef _WIN32
-    #include <conio.h>
-    #include <windows.h>
-#else
-    #include <termios.h>
-    #include <unistd.h>
-    #include <poll.h>
-#endif
-
+#include <fstream>
+#include <chrono>
 #include <memory>
 #include <utility>
 #include <string>
 #include <random>
-#include <timer.hpp>
+#include "timer.hpp"
+#include <iostream>
+
 export module gameplay;
-// imports:
+
 import TAD_minheap;
 import TAD_cliente;
 import TAD_montagem;
@@ -23,10 +18,12 @@ import TAD_receita;
 import TAD_avl;
 import TAD_hash_cache;
 import metricas;
+import renderizacao;
 
 using std::string;
+using std::uniform_int_distribution;
 
-export static std::mt19937 gen(std::random_device{}());
+static std::mt19937 gen(std::random_device{}());
 
 export struct Estoque {
     minHeap carne;   
@@ -54,57 +51,23 @@ export struct EstadoJogo {
 
 /* FUNÇÕES NÃO EXPORTADAS (auxiliares) */
 
-Receita sortearReceita(Avl_pedidos &avl, HashCache_Pedidos &cache, Metricas &metricas) {
-    std::uniform_int_distribution<> dis(avl.menor_codigo, avl.maior_codigo);
-    int sorteado = dis(gen);
-    string stringret = buscar_hash(&cache, sorteado);
+Receita sortearReceita(Avl_Pedidos &avl, HashCache_Pedidos &cache, Metricas &metricas) {
+    uniform_int_distribution<> dis(avl.menor_cod, avl.maior_cod);
+    int sorteado;
+    string stringret;
+    Timer t;
+    
+    do{
+        sorteado = dis(gen);
+        stringret = buscar_hash(&cache, sorteado);
+        if(!stringret.empty()) return construirReceita(stringret);
 
-    if(stringret.empty()) return construirReceita(stringret);
-
-    else{
-        inserir_hash(&cache, sorteado, stringret);
-        Timer t;
         timer_iniciar(&t);
         stringret = buscar_pedido(avl.raiz, sorteado, avl.total_comparacao);
         metricas.avlTempoBuscas += timer_parar(&t);
-        return construirReceita(stringret);
-    }
-}
+    }while(stringret.empty());
 
-/* RENDERIZAÇÃO EM LOOP NO TERMINAL: */
-
-void ativarTerminal(){
-    #ifdef _WIN32{
-        SetConsoleOutputCP(CP_UTF8);
-        SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-    }
-    #else{
-        static termios orig;
-    }
-}
-
-void desativarTerminal(){
-    #ifdef _WIN32{
-        sexosexo
-    }
-    #else{
-        pornoporno
-    }
-    
-}
-
-char lerTecla(int ms){
-    #ifdef _WIN32{
-        if(_kbhit()){
-            return static_cast<char>(_getch());
-        }
-        else{
-            Sleep(ms);
-            return '\0';
-        }
-    }
-    #else{
-        mds
-    }
+    inserir_hash(&cache, sorteado, stringret);
+    return construirReceita(stringret);
 }
 
