@@ -78,7 +78,7 @@ if (opcao == 1 || opcao == 2) {
     }
     std::cout << "Tempo de ordenacao (Merge Sort): " << tempo << " s\n";
 
-    gravarLog(m);   // regrava o medicoes.log com o bloco atualizado
+    gravar_log(m);   // regrava o medicoes.log com o bloco atualizado
 } else if (opcao != 0) {
     std::cout << "Opcao invalida.\n";
 }
