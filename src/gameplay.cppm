@@ -1,11 +1,11 @@
 module;
 
-#include <memory>
-#include <utility>
-#include <string>
-#include <random>
-#include "timer.hpp"
 #include <iostream>
+#include <memory>
+#include <random>
+#include <string>
+#include <utility>
+#include "timer.hpp"
 
 export module gameplay;
 
@@ -22,23 +22,22 @@ using std::string;
 using std::uniform_int_distribution;
 
 static std::mt19937 gen(std::random_device{}());
-static uniform_int_distribution<> dis_paciencia(10, 20);
+static uniform_int_distribution<> dis_fila(10, 20);
+static uniform_int_distribution<> dis_paciencia(15, 22);
 
-constexpr int VAL_CARNE        = 6;  // turnos até vencer
-constexpr int VAL_OVO          = 5;
-constexpr int VAL_BACON        = 8;
-constexpr int REPOSICAO_PERENE = 4;  // unidades ganhas ao repor perene
-constexpr int MAX_PERDIDOS     = 3;  // limite de clientes perdidos (Game Over)
+constexpr int VAL_CARNE = 7; // turnos até vencer
+constexpr int VAL_OVO   = 6;
+constexpr int VAL_BACON = 8;
 
 export struct Estoque {
-    minHeap carne;   
-    minHeap ovo;     
-    minHeap bacon;   
+    minHeap carne;
+    minHeap ovo;
+    minHeap bacon;
 
-    int queijoPrato = 0;
+    int queijoSuico   = 0;
     int queijoCheddar = 0;
-    int cebola = 0;
-    int tomate = 0;
+    int cebola        = 0;
+    int tomate        = 0;
 };
 
 export struct EstadoJogo {
@@ -46,80 +45,102 @@ export struct EstadoJogo {
     FilaClientes fila;
     Pilha montagem;
 
-    int turnoAtual = 1;
-    int pontuacao = 0;
+    int turnoAtual        = 1;
+    int pontuacao         = 0;
     int clientesAtendidos = 0;
-    int clientesPerdidos = 0;
-    static constexpr int pacienciaMax = 20;
-    bool rodando = true;
-    string feedback = "Bem-vindo ao Dado-Burguer!";
+    static constexpr int pacienciaMax = 22;
+    bool rodando          = true;
+    bool vitoria          = false;
+    string feedback       = "Bem-vindo ao Dado-Burguer! Prepare os ingredientes e monte o pedido.";
 };
 
-/* FUNÇÕES NÃO EXPORTADAS (auxiliares) */
+/* ==================== FUNÇÕES AUXILIARES ==================== */
 
-Receita sortearReceita(Avl_Pedidos &avl, HashCache_Pedidos &cache, Metricas &metricas) {
+Receita sortearReceita(Avl_Pedidos& avl, HashCache_Pedidos& cache, Metricas& metricas) {
     uniform_int_distribution<> dis(avl.menor_cod, avl.maior_cod);
-    int sorteado;
+    int sorteado = 0;
     string stringret;
     Timer t;
-    
-    do{
+
+    do {
         sorteado = dis(gen);
         stringret = buscar_hash(&cache, sorteado);
-        if(!stringret.empty()) return construirReceita(stringret);
+        if (!stringret.empty()) {
+            return construirReceita(stringret);
+        }
 
         timer_iniciar(&t);
         stringret = buscar_pedido(avl.raiz, sorteado, avl.total_comparacao);
         metricas.avl_tempo_buscas += timer_parar(&t);
-    }while(stringret.empty());
+    } while (stringret.empty());
 
     inserir_hash(&cache, sorteado, stringret);
     return construirReceita(stringret);
 }
 
-DadosTela montarDadosTela(const EstadoJogo &jogo) {
+DadosTela montarDadosTela(const EstadoJogo& jogo) {
     DadosTela dados;
-    dados.turnoAtual = jogo.turnoAtual;
-    dados.pontuacao = jogo.pontuacao;
+    dados.turnoAtual        = jogo.turnoAtual;
+    dados.pontuacao         = jogo.pontuacao;
     dados.clientesAtendidos = jogo.clientesAtendidos;
-    dados.clientesNaFila = jogo.fila.tamanho;
-    dados.pacienciaMax = jogo.pacienciaMax;
+    dados.clientesNaFila    = jogo.fila.tamanho;
+    dados.pacienciaMax      = jogo.pacienciaMax;
+    dados.feedback          = jogo.feedback;
 
-    Cliente *atual = visualizarInicio(jogo.fila);
-    if(atual != nullptr) {
+    Cliente* atual = visualizarInicio(jogo.fila);
+    if (atual != nullptr) {
         dados.pacienciaAtual = atual->paciencia;
-        dados.textoReceita = stringReceita(atual->pedido);
+        dados.textoReceita   = stringReceita(atual->pedido);
     }
 
     dados.textoMontagem = stringPilha(jogo.montagem);
 
-    dados.baconQtd = jogo.estoque.bacon.tamanho;
     dados.carneQtd = jogo.estoque.carne.tamanho;
-    dados.ovoQtd = jogo.estoque.ovo.tamanho;
+    dados.ovoQtd   = jogo.estoque.ovo.tamanho;
+    dados.baconQtd = jogo.estoque.bacon.tamanho;
 
-    dados.carneProxVenc = (jogo.estoque.carne.tamanho > 0) ? (jogo.estoque.carne.pereciveis[0] - jogo.turnoAtual) : -1;
-    dados.ovoProxVenc = (jogo.estoque.ovo.tamanho > 0) ? (jogo.estoque.ovo.pereciveis[0] - jogo.turnoAtual) : -1;
-    dados.baconProxVenc = (jogo.estoque.bacon.tamanho > 0) ? (jogo.estoque.bacon.pereciveis[0] - jogo.turnoAtual) : -1;
-    
-    dados.queijoPrato = jogo.estoque.queijoPrato;
+    dados.carneProxVenc = (jogo.estoque.carne.tamanho > 0)
+                        ? (jogo.estoque.carne.pereciveis[0] - jogo.turnoAtual) : -1;
+    dados.ovoProxVenc   = (jogo.estoque.ovo.tamanho > 0)
+                        ? (jogo.estoque.ovo.pereciveis[0] - jogo.turnoAtual) : -1;
+    dados.baconProxVenc = (jogo.estoque.bacon.tamanho > 0)
+                        ? (jogo.estoque.bacon.pereciveis[0] - jogo.turnoAtual) : -1;
+
+    dados.queijoSuico   = jogo.estoque.queijoSuico;
     dados.queijoCheddar = jogo.estoque.queijoCheddar;
-    dados.cebola = jogo.estoque.cebola;
-    dados.tomate = jogo.estoque.tomate;
+    dados.cebola        = jogo.estoque.cebola;
+    dados.tomate        = jogo.estoque.tomate;
 
     return dados;
 }
 
-void inicializarPartida(EstadoJogo& jogo, Avl_Pedidos& avl, HashCache_Pedidos& cache, Metricas& metricas){
+void inicializarPartida(EstadoJogo& jogo, Avl_Pedidos& avl, HashCache_Pedidos& cache, Metricas& metricas) {
     iniciarMontagem(jogo.montagem);
 
-    jogo.estoque.queijoPrato = 30;
-    jogo.estoque.queijoCheddar = 30;
-    jogo.estoque.cebola = 30;
-    jogo.estoque.tomate = 30;
-
-    int qtdClientes = dis_paciencia(gen);
-    for(int i = 0; i < qtdClientes; i++){
+    int qtdClientes = dis_fila(gen);
+    for (int i = 0; i < qtdClientes; ++i) {
         enfileirar(jogo.fila, sortearReceita(avl, cache, metricas), dis_paciencia(gen));
+    }
+}
+
+void avancarTurno(EstadoJogo& jogo, bool descontarPaciencia) {
+    if (!jogo.rodando) return;
+
+    jogo.turnoAtual++;
+    descartarVencidos(jogo.estoque.carne, jogo.turnoAtual);
+    descartarVencidos(jogo.estoque.ovo,   jogo.turnoAtual);
+    descartarVencidos(jogo.estoque.bacon, jogo.turnoAtual);
+
+    if (!descontarPaciencia) return;
+
+    Cliente* atual = visualizarInicio(jogo.fila);
+    if (atual != nullptr) {
+        atual->paciencia--;
+        if (atual->paciencia <= 0) {
+            jogo.feedback = "DERROTA! O cliente perdeu a paciencia e foi embora!";
+            jogo.vitoria  = false;
+            jogo.rodando  = false;
+        }
     }
 }
 
@@ -128,13 +149,13 @@ bool prepararPerecivel(EstadoJogo& jogo, char tipo) {
     string nome;
 
     switch (tipo) {
-        case 'c':
+        case 'n':
             ok = inserir(jogo.estoque.carne, jogo.turnoAtual + VAL_CARNE);
             nome = "Carne";
             break;
         case 'o':
             ok = inserir(jogo.estoque.ovo, jogo.turnoAtual + VAL_OVO);
-            nome = "Ovo";
+            nome = "Ovo frito";
             break;
         case 'b':
             ok = inserir(jogo.estoque.bacon, jogo.turnoAtual + VAL_BACON);
@@ -149,219 +170,200 @@ bool prepararPerecivel(EstadoJogo& jogo, char tipo) {
         return false;
     }
 
-    jogo.feedback = nome + " preparada na chapa!";
+    jogo.feedback = nome + " preparado na chapa!";
     return true;
 }
 
-bool reporPerene(EstadoJogo& jogo, char tipo) {
+bool prepararPerene(EstadoJogo& jogo, char tipo) {
     switch (tipo) {
+        case 's':
+            jogo.estoque.queijoSuico++;
+            jogo.feedback = "Queijo suico preparado (+1).";
+            return true;
         case 'q':
-            jogo.estoque.queijoPrato += REPOSICAO_PERENE;
-            jogo.feedback = "Queijo prato reposto (+" + std::to_string(REPOSICAO_PERENE) + ").";
+            jogo.estoque.queijoCheddar++;
+            jogo.feedback = "Queijo cheddar preparado (+1).";
             return true;
-        case 'd':
-            jogo.estoque.queijoCheddar += REPOSICAO_PERENE;
-            jogo.feedback = "Cheddar reposto (+" + std::to_string(REPOSICAO_PERENE) + ").";
-            return true;
-        case 'e':
-            jogo.estoque.cebola += REPOSICAO_PERENE;
-            jogo.feedback = "Cebola reposta (+" + std::to_string(REPOSICAO_PERENE) + ").";
+        case 'c':
+            jogo.estoque.cebola++;
+            jogo.feedback = "Cebola preparada (+1).";
             return true;
         case 't':
-            jogo.estoque.tomate += REPOSICAO_PERENE;
-            jogo.feedback = "Tomate reposto (+" + std::to_string(REPOSICAO_PERENE) + ").";
+            jogo.estoque.tomate++;
+            jogo.feedback = "Tomate preparado (+1).";
             return true;
         default:
             return false;
     }
 }
 
-bool montarIngrediente(EstadoJogo& jogo, char ing) {
-    // Evita consumir estoque se o pao topo ('z') ja fechou o lanche
+// Retorna: 0 = nao gastou turno, 1 = gastou turno normal, 2 = pedido entregue com sucesso
+int montarIngrediente(EstadoJogo& jogo, char ing) {
     string pilhaAtual = stringPilha(jogo.montagem);
     if (!pilhaAtual.empty() && pilhaAtual[0] == 'z') {
-        jogo.feedback = "Lanche ja fechado com pao topo! Entregue [Enter] ou desfaça [Backspace].";
-        return false;
+        jogo.feedback = "Lanche fechado com pao topo! Use [Backspace] para corrigir.";
+        return 0;
     }
 
     switch (ing) {
-        case 'c':
+        // Perecíveis (consomem topo do Min-Heap)
+        case 'n':
             if (!removerHeap(jogo.estoque.carne)) {
-                jogo.feedback = "Sem carne pronta na chapa! Aperte [1] para preparar.";
-                return false;
+                jogo.feedback = "Sem carne na chapa! Aperte [1] para preparar.";
+                return 0;
             }
             break;
         case 'o':
             if (!removerHeap(jogo.estoque.ovo)) {
-                jogo.feedback = "Sem ovo pronto na chapa! Aperte [2] para preparar.";
-                return false;
+                jogo.feedback = "Sem ovo na chapa! Aperte [2] para preparar.";
+                return 0;
             }
             break;
         case 'b':
             if (!removerHeap(jogo.estoque.bacon)) {
-                jogo.feedback = "Sem bacon pronto na chapa! Aperte [3] para preparar.";
-                return false;
+                jogo.feedback = "Sem bacon na chapa! Aperte [3] para preparar.";
+                return 0;
             }
+            break;
+
+        // Perenes (consomem 1 unidade preparada)
+        case 's':
+            if (jogo.estoque.queijoSuico <= 0) {
+                jogo.feedback = "Sem queijo suico! Aperte [4] para preparar.";
+                return 0;
+            }
+            jogo.estoque.queijoSuico--;
             break;
         case 'q':
-            if (jogo.estoque.queijoPrato <= 0) {
-                jogo.feedback = "Sem queijo prato! Aperte [4] para repor.";
-                return false;
-            }
-            jogo.estoque.queijoPrato--;
-            break;
-        case 'd':
             if (jogo.estoque.queijoCheddar <= 0) {
-                jogo.feedback = "Sem cheddar! Aperte [5] para repor.";
-                return false;
+                jogo.feedback = "Sem queijo cheddar! Aperte [5] para preparar.";
+                return 0;
             }
             jogo.estoque.queijoCheddar--;
             break;
-        case 'e':
+        case 'c':
             if (jogo.estoque.cebola <= 0) {
-                jogo.feedback = "Sem cebola! Aperte [6] para repor.";
-                return false;
+                jogo.feedback = "Sem cebola! Aperte [6] para preparar.";
+                return 0;
             }
             jogo.estoque.cebola--;
             break;
         case 't':
             if (jogo.estoque.tomate <= 0) {
-                jogo.feedback = "Sem tomate! Aperte [7] para repor.";
-                return false;
+                jogo.feedback = "Sem tomate! Aperte [7] para preparar.";
+                return 0;
             }
             jogo.estoque.tomate--;
             break;
+
+        // Infinitos (sem preparo)
         case 'z':
-            // Pao topo e livre (nao consome estoque)
+        case 'k':
+        case 'm':
+        case 'p':
+        case 'a':
             break;
+
         default:
-            return false;
+            return 0;
     }
 
     empilhar(jogo.montagem, ing);
-    jogo.feedback = string("Ingrediente '") + ing + "' empilhado!";
-    return true;
+
+    // Ao colocar o pão de cima ('z'), verifica automaticamente o pedido
+    if (ing == 'z') {
+        Cliente* atual = visualizarInicio(jogo.fila);
+        if (atual != nullptr && comparar(atual->pedido, jogo.montagem)) {
+            jogo.clientesAtendidos++;
+            jogo.pontuacao = jogo.clientesAtendidos;
+
+            desenfileirar(jogo.fila);
+            iniciarMontagem(jogo.montagem);
+
+            if (jogo.fila.tamanho == 0) {
+                jogo.feedback = "VITORIA! Todos os clientes foram atendidos!";
+                jogo.vitoria  = true;
+                jogo.rodando  = false;
+            } else {
+                jogo.feedback = "Pedido entregue com sucesso! (" + std::to_string(jogo.clientesAtendidos) + " atendidos)";
+            }
+            return 2;
+        }
+
+        jogo.feedback = "Pedido incorreto! Use [Backspace] para remover o pao topo e corrigir.";
+        return 1;
+    }
+
+    jogo.feedback = string("Ingrediente '") + ing + "' adicionado ao hamburguer.";
+    return 1;
 }
 
 bool desfazerIngrediente(EstadoJogo& jogo) {
     if (stringPilha(jogo.montagem).empty()) {
-        jogo.feedback = "A montagem ja esta vazia (apenas pao base).";
+        jogo.feedback = "A montagem ja esta vazia (apenas pao de baixo).";
         return false;
     }
 
     desempilhar(jogo.montagem);
-    jogo.feedback = "Ultimo ingrediente removido da montagem.";
-    return true; // troque para false se nao quiser cobrar turno ao desfazer
-}
-
-bool entregarPedido(EstadoJogo& jogo) {
-    Cliente* atual = visualizarInicio(jogo.fila);
-    if (atual == nullptr) {
-        jogo.rodando = false;
-        return false;
-    }
-
-    if (comparar(atual->pedido, jogo.montagem)) {
-        int ganho = 100 + atual->paciencia * 10;
-        jogo.pontuacao += ganho;
-        jogo.clientesAtendidos++;
-
-        desenfileirar(jogo.fila);
-        iniciarMontagem(jogo.montagem);
-
-        if (jogo.fila.tamanho == 0) {
-            jogo.feedback = "Expediente concluido! Todos os clientes foram atendidos!";
-            jogo.rodando = false;
-        } else {
-            jogo.feedback = "Pedido entregue com sucesso! +" + std::to_string(ganho) + " pts.";
-        }
-        return true;
-    }
-
-    jogo.feedback = "Pedido incorreto! Use [Backspace] para corrigir e tente novamente.";
-    return true; // penalidade de 1 turno por entrega errada
-}
-
-void avancarTurno(EstadoJogo& jogo) {
-    if (!jogo.rodando) return;
-
-    jogo.turnoAtual++;
-    descartarVencidos(jogo.estoque.carne, jogo.turnoAtual);
-    descartarVencidos(jogo.estoque.ovo,   jogo.turnoAtual);
-    descartarVencidos(jogo.estoque.bacon, jogo.turnoAtual);
-
-    Cliente* atual = visualizarInicio(jogo.fila);
-    if (atual != nullptr) {
-        atual->paciencia--;
-        if (atual->paciencia <= 0) {
-            desenfileirar(jogo.fila);
-            iniciarMontagem(jogo.montagem);
-            jogo.clientesPerdidos++;
-            jogo.feedback = "Cliente perdeu a paciencia e foi embora! ("
-                          + std::to_string(jogo.clientesPerdidos) + "/"
-                          + std::to_string(MAX_PERDIDOS) + ")";
-        }
-    }
-
-    if (jogo.clientesPerdidos >= MAX_PERDIDOS || jogo.fila.tamanho == 0) {
-        jogo.rodando = false;
-    }
+    jogo.feedback = "Ingrediente do topo descartado.";
+    return true;
 }
 
 void processarTecla(EstadoJogo& jogo, char tecla) {
-    bool gastouTurno = false;
+    int resultadoTurno = 0; // 0 = nenhum, 1 = turno normal, 2 = turno de entrega bem-sucedida
 
     switch (tecla) {
         // Preparar perecíveis na chapa (Min-Heap)
-        case '1': gastouTurno = prepararPerecivel(jogo, 'c'); break;
-        case '2': gastouTurno = prepararPerecivel(jogo, 'o'); break;
-        case '3': gastouTurno = prepararPerecivel(jogo, 'b'); break;
+        case '1': resultadoTurno = prepararPerecivel(jogo, 'n') ? 1 : 0; break;
+        case '2': resultadoTurno = prepararPerecivel(jogo, 'o') ? 1 : 0; break;
+        case '3': resultadoTurno = prepararPerecivel(jogo, 'b') ? 1 : 0; break;
 
-        // Repor perenes
-        case '4': gastouTurno = reporPerene(jogo, 'q'); break;
-        case '5': gastouTurno = reporPerene(jogo, 'd'); break;
-        case '6': gastouTurno = reporPerene(jogo, 'e'); break;
-        case '7': gastouTurno = reporPerene(jogo, 't'); break;
+        // Preparar perenes (+1 unidade cada)
+        case '4': resultadoTurno = prepararPerene(jogo, 's') ? 1 : 0; break;
+        case '5': resultadoTurno = prepararPerene(jogo, 'q') ? 1 : 0; break;
+        case '6': resultadoTurno = prepararPerene(jogo, 'c') ? 1 : 0; break;
+        case '7': resultadoTurno = prepararPerene(jogo, 't') ? 1 : 0; break;
 
-        // Montar hambúrguer (Pilha)
-        case 'c': case 'C': gastouTurno = montarIngrediente(jogo, 'c'); break;
-        case 'o': case 'O': gastouTurno = montarIngrediente(jogo, 'o'); break;
-        case 'b': case 'B': gastouTurno = montarIngrediente(jogo, 'b'); break;
-        case 'q': case 'Q': gastouTurno = montarIngrediente(jogo, 'q'); break;
-        case 'd': case 'D': gastouTurno = montarIngrediente(jogo, 'd'); break;
-        case 'e': case 'E': gastouTurno = montarIngrediente(jogo, 'e'); break;
-        case 't': case 'T': gastouTurno = montarIngrediente(jogo, 't'); break;
-        case 'z': case 'Z': gastouTurno = montarIngrediente(jogo, 'z'); break;
+        // Montar hambúrguer (todos os 12 símbolos da Tabela 1)
+        case 'z': case 'Z': resultadoTurno = montarIngrediente(jogo, 'z'); break;
+        case 'k': case 'K': resultadoTurno = montarIngrediente(jogo, 'k'); break;
+        case 'm': case 'M': resultadoTurno = montarIngrediente(jogo, 'm'); break;
+        case 'p': case 'P': resultadoTurno = montarIngrediente(jogo, 'p'); break;
+        case 'a': case 'A': resultadoTurno = montarIngrediente(jogo, 'a'); break;
+        case 's': case 'S': resultadoTurno = montarIngrediente(jogo, 's'); break;
+        case 'q': case 'Q': resultadoTurno = montarIngrediente(jogo, 'q'); break;
+        case 'c': case 'C': resultadoTurno = montarIngrediente(jogo, 'c'); break;
+        case 't': case 'T': resultadoTurno = montarIngrediente(jogo, 't'); break;
+        case 'n': case 'N': resultadoTurno = montarIngrediente(jogo, 'n'); break;
+        case 'o': case 'O': resultadoTurno = montarIngrediente(jogo, 'o'); break;
+        case 'b': case 'B': resultadoTurno = montarIngrediente(jogo, 'b'); break;
 
-        // Desfazer (Linux = 127, Windows = '\b')
+        // Remover ingrediente do topo (Linux = 127, Windows = '\b')
         case 127:
         case '\b':
-            gastouTurno = desfazerIngrediente(jogo);
+            resultadoTurno = desfazerIngrediente(jogo) ? 1 : 0;
             break;
 
-        // Entregar (Linux = '\n', Windows = '\r')
-        case '\n':
-        case '\r':
-            gastouTurno = entregarPedido(jogo);
-            break;
-
-        // Sair (ESC ou 0)
+        // Sair voluntariamente (ESC isolado ou 0)
         case 27:
         case '0':
-            jogo.rodando = false;
+            jogo.feedback = "Partida encerrada pelo jogador.";
+            jogo.rodando  = false;
             return;
 
         default:
             return;
     }
 
-    if (gastouTurno) {
-        avancarTurno(jogo);
+    if (resultadoTurno == 1) {
+        avancarTurno(jogo, true);
+    } else if (resultadoTurno == 2) {
+        avancarTurno(jogo, false); // novo cliente entra com paciência intacta
     }
 }
 
-/* FUNÇÕES EXPORTADAS */
-// no fim só foi uma baita unica funcao, mais facil
+/* ==================== FUNÇÃO EXPORTADA ==================== */
+
 export int executarGameplay(Avl_Pedidos& avl,
                             HashCache_Pedidos& cache,
                             Metricas& metricas,
@@ -377,7 +379,6 @@ export int executarGameplay(Avl_Pedidos& avl,
     bool precisaRedesenhar = true;
 
     while (jogo.rodando) {
-        // Anima sprites ~4 vezes por segundo (independente do teclado)
         if (timer_parar(&timerAnim) >= 0.25) {
             tickAnim++;
             timer_iniciar(&timerAnim);
@@ -398,5 +399,14 @@ export int executarGameplay(Avl_Pedidos& avl,
     }
 
     desativarTerminal();
+
+    std::cout << "\033[2J\033[H";
+    if (jogo.vitoria) {
+        std::cout << "\033[1;32m=== VITORIA! TODOS OS CLIENTES ATENDIDOS! ===\033[0m\n";
+    } else {
+        std::cout << "\033[1;31m=== FIM DE PARTIDA ===\033[0m\n"
+                  << jogo.feedback << "\n";
+    }
+
     return jogo.pontuacao;
 }

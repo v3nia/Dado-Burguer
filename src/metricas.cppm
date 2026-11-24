@@ -113,6 +113,8 @@ void escrever_relatorio(std::ostream& out, const Metricas& m, const char* algori
             << "Total de comparacoes: " << m.avl_comparacoes << "\n"
             << "Media de comparacoes por busca: " << std::setprecision(2)
             << media << "\n"
+            << "Tempo medio por busca: " << std::setprecision(6)
+            << tempo_medio_busca << " s\n"
             << "Tempo total acumulado: " << std::setprecision(6)
             << m.avl_tempo_buscas << " s\n"
             << "-- Tabela hash --\n"

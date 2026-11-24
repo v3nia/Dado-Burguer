@@ -76,18 +76,25 @@ static OpcaoMenu mostrar_menu(const PacoteSprites& sprites) {
 static void mostrar_como_jogar() {
     std::cout << "\033[2J\033[H"
               << "=== COMO JOGAR DADO-BURGUER ===\n\n"
-              << "Atenda os clientes da fila montando os lanches na ordem exata do pedido\n"
-              << "(de baixo para cima, partindo do pao base) antes que a paciencia acabe!\n\n"
-              << "-- CHAPA (Pereciveis - vencem com os turnos!) --\n"
-              << "  [1] Preparar Carne    [2] Preparar Ovo    [3] Preparar Bacon\n\n"
-              << "-- ESTOQUE (Perenes) --\n"
-              << "  [4] Repor Queijo Prato   [5] Repor Cheddar\n"
-              << "  [6] Repor Cebola         [7] Repor Tomate\n\n"
-              << "-- MONTAGEM DO LANCHE --\n"
-              << "  [C] Carne  [O] Ovo  [B] Bacon  [Q] Prato  [D] Cheddar\n"
-              << "  [E] Cebola [T] Tomate [Z] Pao Topo (fecha o lanche)\n"
-              << "  [Backspace] Desfazer ultima camada   [Enter] Entregar pedido\n"
-              << "  [0 ou ESC] Encerrar partida\n\n"
+              << "OBJETIVO: Atenda todos os clientes da fila montando os hamburgueres\n"
+              << "na ordem exata do pedido (de baixo para cima, a partir do pao de baixo).\n\n"
+              << "-- INGREDIENTES INFINITOS (sem preparo) --\n"
+              << "  [k] Ketchup   [m] Mostarda   [p] Picles   [a] Alface\n"
+              << "  [z] Pao de cima (fecha e entrega o pedido se estiver correto)\n\n"
+              << "-- INGREDIENTES PERENES (preparo gera +1 unidade, nao vencem) --\n"
+              << "  [4] Preparar / [s] Empilhar Queijo Suico\n"
+              << "  [5] Preparar / [q] Empilhar Queijo Cheddar\n"
+              << "  [6] Preparar / [c] Empilhar Cebola\n"
+              << "  [7] Preparar / [t] Empilhar Tomate\n\n"
+              << "-- INGREDIENTES PERECIVEIS (preparo vai para a chapa e vence com os turnos) --\n"
+              << "  [1] Preparar / [n] Empilhar Carne     (validade: 7 turnos)\n"
+              << "  [2] Preparar / [o] Empilhar Ovo frito (validade: 6 turnos)\n"
+              << "  [3] Preparar / [b] Empilhar Bacon     (validade: 8 turnos)\n\n"
+              << "-- TURNOS E REGRAS --\n"
+              << "  Consomem 1 turno: preparar ingrediente, empilhar ingrediente, remover topo [Backspace].\n"
+              << "  Vitoria: atender toda a fila. Derrota: paciencia do cliente atual chegar a 0.\n"
+              << "  Pontuacao: numero de clientes atendidos.\n"
+              << "  [0 ou ESC] Encerrar partida.\n\n"
               << "Pressione ENTER para voltar ao menu...";
     std::string pausa;
     std::getline(std::cin, pausa);
@@ -170,9 +177,7 @@ int main(int argc, char** argv) {
 
                 coletar_metricas_partida(avl, cache, g_metricas);
 
-                std::cout << "\033[2J\033[H"
-                          << "=== FIM DE PARTIDA ===\n"
-                          << "Pontuacao final: " << pontuacao << " pts\n\n";
+                std::cout << "Pontuacao final: " << pontuacao << " cliente(s) atendido(s)\n\n";
                 mostrar_relatorio(g_metricas);
                 gravar_log(g_metricas);
 

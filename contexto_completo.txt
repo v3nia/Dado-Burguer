@@ -1,0 +1,2261 @@
+]633;E;head -n 10000 CMakeLists.txt TADs/*.cppm src/*.cppm src/*.cpp src/*.hpp;a2e976c9-3966-479d-86e6-9c41e443e7c9]633;C==> CMakeLists.txt <==
+cmake_minimum_required(VERSION 3.28)
+
+project(DadoBurguer LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Gera build/compile_commands.json para o clangd reconhecer os módulos
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+add_executable(dado_burguer
+    src/main.cpp
+    src/timer.cpp
+)
+
+# Garante que #include "timer.hpp" funcione em qualquer arquivo do projeto
+target_include_directories(dado_burguer PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+# Registra TODOS os módulos C++20 para o CMake resolver a ordem de compilação
+target_sources(dado_burguer
+    PRIVATE
+        FILE_SET CXX_MODULES FILES
+            # TADs
+            TADs/avl.cppm
+            TADs/fila_clientes.cppm
+            TADs/hash_cache.cppm
+            TADs/lista_contigua.cppm
+            TADs/montagem_burguer.cppm
+            TADs/pereciveis_minheap.cppm
+            TADs/receita.cppm
+
+            # Sistema, interface e gameplay
+            src/arquivos.cppm
+            src/coleta_metricas.cppm
+            src/gameplay.cppm
+            src/metricas.cppm
+            src/ordenacao.cppm
+            src/renderizacao.cppm
+            src/tela_historico.cppm
+)
+
+# Flags por compilador e garantia de UTF-8 para a TUI no Windows
+if(MSVC)
+    target_compile_options(dado_burguer PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(dado_burguer PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+==> TADs/avl.cppm <==
+module;
+#include <string>
+#include <memory>  
+
+export module TAD_avl;
+
+using std::unique_ptr;
+using std::make_unique;
+using std::string;
+
+export{
+    struct NodoAvl {
+        int cod_pedido;
+        string receita;
+        unique_ptr<NodoAvl> esq;
+        unique_ptr<NodoAvl> dir;
+        int altura;   /* arvoreVazia = 0 e só raiz = 1 */
+    };
+    
+    struct Avl_Pedidos{
+        unique_ptr<NodoAvl> raiz;
+        int maior_cod = 0;
+        int menor_cod = 0;
+        int total_insercao = 0; //PASSO COMO PONTEIRO PARA A FUNÇÃO DE INSERÇÃO
+        int total_rotacao = 0; //PASSO COMO PONTEIRO PARA AS FUNCÕES DE ROTACAO
+        int total_comparacao = 0; //PASSO COMO PONTEIRO PARA A FUNCÃO DE BUSCA
+    };
+
+    //PROTÓTIPOS DAS FUNÇÕES INTERNAS
+    int avl_altura(const unique_ptr<NodoAvl>& no);
+    void avl_atualizar_altura(const unique_ptr<NodoAvl>& no);
+    int avl_fb(const unique_ptr<NodoAvl>& raiz);
+    unique_ptr<NodoAvl> avl_rotacao_direita(unique_ptr<NodoAvl>& raiz, int &total_rotacao);
+    unique_ptr<NodoAvl> avl_rotacao_esquerda(unique_ptr<NodoAvl>& raiz, int &total_rotacao);
+    unique_ptr<NodoAvl> avl_reequilibrar(unique_ptr<NodoAvl>& raiz, int &total_rotacao);
+
+    unique_ptr<NodoAvl> inserir_pedido(unique_ptr<NodoAvl> &raiz, const NodoAvl& pedido, int &total_insercao, int &total_rotacao, int &total_comparacao, int& menor_cod, int& maior_cod){
+        if (total_insercao == 0) {
+            menor_cod = pedido.cod_pedido;
+            maior_cod = pedido.cod_pedido;
+        }
+
+        if (raiz == nullptr) {
+            unique_ptr<NodoAvl> novo = make_unique<NodoAvl>();
+            novo->cod_pedido = pedido.cod_pedido;
+            novo->receita = pedido.receita;
+            novo->esq = nullptr;
+            novo->dir = nullptr;
+            novo->altura = 1;
+
+            if (pedido.cod_pedido < menor_cod) {
+                menor_cod = pedido.cod_pedido;
+            }
+            if (pedido.cod_pedido > maior_cod) {
+                maior_cod = pedido.cod_pedido;
+            }
+
+            total_insercao++;
+            return novo;
+        }
+
+        if (pedido.cod_pedido < raiz->cod_pedido)
+            raiz->esq = inserir_pedido(raiz->esq, pedido, total_insercao, total_rotacao, total_comparacao, menor_cod, maior_cod);
+            
+        else if (pedido.cod_pedido > raiz->cod_pedido)
+            raiz->dir = inserir_pedido(raiz->dir, pedido, total_insercao, total_rotacao, total_comparacao, menor_cod, maior_cod);
+        else
+            return std::move(raiz); //por que não pode ser só return raiz;?
+
+        
+        return avl_reequilibrar(raiz, total_rotacao);
+    }
+
+    string buscar_pedido(const unique_ptr<NodoAvl>& raiz, int cod_busca, int &total_comparacao){
+        if (raiz == nullptr) return "";
+        if (cod_busca == raiz->cod_pedido){
+            total_comparacao++;
+            return raiz->receita;
+        }
+        if (cod_busca < raiz->cod_pedido){
+            total_comparacao++;
+            return buscar_pedido(raiz->esq, cod_busca, total_comparacao);
+        } else {
+            total_comparacao++;
+            return buscar_pedido(raiz->dir, cod_busca, total_comparacao);
+        }
+    }
+
+}
+
+int avl_altura(const unique_ptr<NodoAvl>& no){
+    if (no == nullptr) return 0;
+    return no->altura;
+}
+
+void avl_atualizar_altura(const unique_ptr<NodoAvl>& no) {
+    if (no == nullptr) return;
+    int ae = avl_altura(no->esq);
+    int ad = avl_altura(no->dir);
+    if (ae > ad){
+        no->altura = 1 + ae;
+    } else{
+        no->altura = 1 + ad;
+    }
+}
+
+int avl_fb(const unique_ptr<NodoAvl>& raiz) {
+    if (raiz == nullptr) return 0;
+    return avl_altura(raiz->esq) - avl_altura(raiz->dir);
+}
+
+unique_ptr<NodoAvl> avl_reequilibrar(unique_ptr<NodoAvl>& raiz, int &total_rotacao) {
+    avl_atualizar_altura(raiz);
+    int balanceamento = avl_fb(raiz);
+
+    if (balanceamento == +2 && avl_fb(raiz ->esq) >= 0) {
+        return avl_rotacao_direita(raiz, total_rotacao);
+    } else if (balanceamento == -2 && avl_fb(raiz->dir) <= 0) {
+        return avl_rotacao_esquerda(raiz, total_rotacao);
+    } else if (balanceamento == +2 && avl_fb(raiz->esq) < 0) {
+        raiz->esq = avl_rotacao_esquerda(raiz->esq, total_rotacao);
+        return avl_rotacao_direita(raiz, total_rotacao  );
+    } else if (balanceamento == -2 && avl_fb(raiz->dir) > 0) {
+        raiz->dir = avl_rotacao_direita(raiz->dir, total_rotacao);
+        return avl_rotacao_esquerda(raiz, total_rotacao);
+    }
+
+    return std::move(raiz);
+}
+
+unique_ptr<NodoAvl> avl_rotacao_direita(unique_ptr<NodoAvl>& raiz, int &total_rotacao) {
+    unique_ptr<NodoAvl> nova_raiz = std::move(raiz->esq);
+    unique_ptr<NodoAvl> temp = std::move(nova_raiz->dir);
+
+    nova_raiz->dir = std::move(raiz);
+    nova_raiz->dir->esq = std::move(temp);
+    
+    avl_atualizar_altura(nova_raiz->dir);
+    avl_atualizar_altura(nova_raiz);
+    total_rotacao++;
+
+    return std::move(nova_raiz);
+}
+
+unique_ptr<NodoAvl> avl_rotacao_esquerda(unique_ptr<NodoAvl>& raiz, int &total_rotacao) {
+    unique_ptr<NodoAvl> nova_raiz = std::move(raiz->dir);
+    unique_ptr<NodoAvl> temp = std::move(nova_raiz->esq);
+
+    nova_raiz->esq = std::move(raiz);
+    nova_raiz->esq->dir = std::move(temp);
+    
+    avl_atualizar_altura(nova_raiz->esq);
+    avl_atualizar_altura(nova_raiz);
+    total_rotacao++;
+
+    return std::move(nova_raiz);
+}
+
+int maior_codigo(Avl_Pedidos& avl){
+    while(avl.raiz->dir != nullptr){
+        avl.raiz = std::move(avl.raiz->dir);
+    }
+    return avl.raiz->cod_pedido;
+}
+
+int menor_codigo(Avl_Pedidos& avl){
+    while(avl.raiz->esq != nullptr){
+        avl.raiz = std::move(avl.raiz->esq);
+    }
+    return avl.raiz->cod_pedido; 
+}
+==> TADs/fila_clientes.cppm <==
+module;
+#include <utility>
+#include <memory>
+export module TAD_cliente;
+import TAD_receita;
+using std::unique_ptr;
+using std::make_unique;
+
+export struct Cliente {
+    Receita pedido;
+    int paciencia;
+};
+
+export struct nodoFila {
+    Cliente cliente;
+    unique_ptr<nodoFila> prox;
+};
+
+export struct FilaClientes {
+    unique_ptr<nodoFila> inicio;
+    nodoFila* fim = nullptr;
+    int tamanho = 0;
+};
+
+export void enfileirar(FilaClientes& fila, Receita pedido, int paciencia) {
+    auto novoNodo = make_unique<nodoFila>(Cliente{std::move(pedido), paciencia}, nullptr);
+
+    if (!fila.inicio) {
+        fila.inicio = std::move(novoNodo);
+        fila.fim = fila.inicio.get();
+    } else {
+        fila.fim->prox = std::move(novoNodo);
+        fila.fim = fila.fim->prox.get();
+    }
+    fila.tamanho++;
+}
+
+export void desenfileirar(FilaClientes& fila) {
+    if (!fila.inicio) {
+        return; 
+    }
+
+    fila.inicio = std::move(fila.inicio->prox);
+    if (!fila.inicio) {
+        fila.fim = nullptr; 
+    }
+    fila.tamanho--;
+}
+
+export Cliente* visualizarInicio(const FilaClientes& fila) {
+    if (!fila.inicio) {
+        return nullptr; 
+    }
+    return &fila.inicio->cliente;
+}
+
+
+==> TADs/hash_cache.cppm <==
+module;
+#include <memory>
+#include <string>
+
+export module TAD_hash_cache;
+
+using std::unique_ptr;
+using std::make_unique;
+using std::string;
+
+const int M = 16; //tamanho da tabela hash
+
+export{
+    struct NodoHashCache {
+        int cod_pedido;
+        string receita;
+        unique_ptr<NodoHashCache> prox;
+    };
+
+    struct HashCache_Pedidos{
+        unique_ptr<NodoHashCache> tabela[M];
+        int n = 0; //número de elementos na tabela
+        int m = M; //tamanho da tabela
+
+        int hit = 0; //número de acertos na busca
+        int miss = 0; //número de falhas na busca
+
+        int colisoes = 0; //número de colisões na inserção
+    };
+
+    //PROTÓTIPOS DAS FUNÇÕES INTERNAS
+    int hash_multiplicativo(int chave, int m);
+    void inserir_hash(HashCache_Pedidos *t, int cod_pedido, const string& receita);
+
+    //retorna a receita se o código do pedido estiver na tabela hash, se não estiver, busca na avl, insere na tabela hash e retorna uma string vazia
+    string buscar_hash(HashCache_Pedidos *t, int cod_pedido) {
+        int i = hash_multiplicativo(cod_pedido, t->m);
+
+        const NodoHashCache *p = t->tabela[i].get();
+        while (p != nullptr) {
+            if (p->cod_pedido == cod_pedido) {
+                t->hit++;
+                return p->receita;
+            }
+            p = p->prox.get();
+        }
+
+        t->miss++;
+        return "";
+    }
+
+    void inserir_hash(HashCache_Pedidos *t, int cod_novo, const string& receita_nova) {
+        int i = hash_multiplicativo(cod_novo, t->m);
+        
+        //cria um novo nodo e insere no início da lista encadeada na posição i da tabela hash
+        auto novo = make_unique<NodoHashCache>();
+        novo->cod_pedido = cod_novo;
+        novo->receita = receita_nova;
+
+        //verifica se já existe algum elemento na posição i da tabela hash, se sim, incrementa o número de colisões
+        if (t->tabela[i] !=nullptr) {
+            t->colisoes++;
+        }
+
+        novo->prox = std::move(t->tabela[i]); 
+        t->tabela[i] = std::move(novo);
+        t->n++;
+    }
+
+    float taxa_acerto(int hit, int miss) {
+        if (hit + miss == 0) return 0.0f; //trata o caso de divisão por zero quando não houve buscas
+        float resultado = (float)hit / (hit + miss);
+        return resultado; //NA EXIBIÇÃO, MULTIPLICAR POR 100 PARA OBTER A TAXA EM PORCENTAGEM
+    }
+
+    void limpar_hash(HashCache_Pedidos *t) {
+        if (t == nullptr) {
+            return;
+        }
+
+        for (int i = 0; i < t->m; i++) {
+            t->tabela[i] = nullptr;
+        }
+
+        t->n = 0;
+        t->hit = 0;
+        t->miss = 0;
+        t->colisoes = 0;
+    }
+
+}
+
+int hash_multiplicativo(int chave, int m) {
+    double A  = 0.6180339887;
+    double frac = chave * A - (int)(chave * A);
+    return (int)(m * frac);
+}
+==> TADs/lista_contigua.cppm <==
+module;
+
+#include <memory>
+#include <string>
+
+export module TAD_lista_contigua;
+
+using std::string;
+using std::unique_ptr;
+using std::make_unique;
+
+export{
+    struct NodoListaContigua {
+        string nome;
+        int pontuacao;
+    };
+
+    struct ListaContigua_Historico {
+        int tamanho;
+        int capacidade;
+        unique_ptr<NodoListaContigua[]> elementos;
+    };
+
+    //PROTÓTIPOS DAS FUNÇÕES INTERNAS
+    void redimensionar(ListaContigua_Historico& lista);
+
+    void inicializar_listacontigua(ListaContigua_Historico& lista) {
+        lista.tamanho = 0;
+        lista.capacidade = 1000; 
+        lista.elementos = make_unique<NodoListaContigua[]>(lista.capacidade);
+    }
+
+    bool inserir_listacontigua(ListaContigua_Historico& lista, NodoListaContigua novo, int posicao) {
+        
+        if (posicao < 0 || posicao > lista.tamanho) { //posição inválida
+            return false;  
+        }
+
+        if (lista.tamanho >= lista.capacidade) { //verifico se ainda cabe, se não, redimensiono
+            redimensionar(lista);
+        }
+
+        for (int i = lista.tamanho; i > posicao; i--) {
+            lista.elementos[i] = std::move(lista.elementos[i - 1]);
+        }
+
+        lista.elementos[posicao] = novo;
+        lista.tamanho++;
+          
+        return true;
+    }
+
+    NodoListaContigua* acessar_listacontigua(ListaContigua_Historico& lista, int posicao) {
+        NodoListaContigua* resultado;
+
+        if (posicao >= lista.tamanho || posicao < 0) {
+            return nullptr;
+        }
+
+        resultado = &lista.elementos[posicao];
+
+        return resultado;
+    }
+
+    int tamanho_listacontigua(const ListaContigua_Historico& l) {
+        return l.tamanho;
+    }
+
+    ListaContigua_Historico copiar_listacontigua(const ListaContigua_Historico& lista) {
+        ListaContigua_Historico copia;
+        copia.tamanho = lista.tamanho;
+        copia.capacidade = lista.capacidade;
+        //preciso alocar a memoria para a cópia, se não, dará erro e não vai ter como armazenar
+        copia.elementos = make_unique<NodoListaContigua[]>(copia.capacidade);
+        for (int i = 0; i < lista.tamanho; ++i) {
+            copia.elementos[i] = lista.elementos[i];
+        }
+        return copia;
+    }
+}
+
+void redimensionar(ListaContigua_Historico& lista) {
+    int nova_capacidade = lista.capacidade * 2;
+        
+    //aloco e movo os elementos antigos para a nova lista
+    auto novos_elementos = make_unique<NodoListaContigua[]>(nova_capacidade);
+    for (int i = 0; i < lista.tamanho; ++i) {
+        novos_elementos[i] = std::move(lista.elementos[i]);
+    }
+
+    lista.elementos = std::move(novos_elementos);
+    lista.capacidade = nova_capacidade;
+}
+==> TADs/montagem_burguer.cppm <==
+module;
+#include <memory>
+#include <string>
+export module TAD_montagem;
+import TAD_receita;
+using std::unique_ptr; 
+using std::make_unique;
+using std::string;
+
+struct nodoPilha{
+    char ingrediente;
+    unique_ptr<nodoPilha> prox;
+};
+
+export struct Pilha{
+    unique_ptr<nodoPilha> topo;
+};
+
+export void iniciarMontagem(Pilha &p){
+    p.topo = make_unique<nodoPilha>('i', nullptr);
+};
+
+export void empilhar(Pilha &p, char ingrediente){
+    if (p.topo->ingrediente == 'z') return;
+
+    auto novo = make_unique<nodoPilha>(ingrediente, std::move(p.topo));
+    p.topo = std::move(novo);
+};
+
+export void desempilhar(Pilha &p){
+    if (p.topo->ingrediente == 'i') return;
+
+    p.topo = std::move(p.topo->prox);
+};
+
+export string stringPilha(const Pilha &p){
+    string resultado;
+    auto aux = p.topo.get();
+
+    while(aux->prox != nullptr && aux->ingrediente != 'i'){
+        resultado += aux->ingrediente;
+        aux = aux->prox.get();
+    }
+
+    return resultado;
+};
+
+export bool comparar(const Receita& r, const Pilha& p){
+    return (stringPilha(p) == stringReceita(r));
+};
+
+==> TADs/pereciveis_minheap.cppm <==
+module;
+#include <memory>
+export module TAD_minheap;
+using std::unique_ptr;
+using std::make_unique;
+
+
+export struct minHeap {
+    static constexpr int capacidade = 8;
+    int tamanho = 0;
+    unique_ptr<int[]> pereciveis = make_unique<int[]>(capacidade);
+};
+
+void heapify(minHeap &heap, int i){
+    int menor = i;
+    int esquerda = 2 * i + 1;
+    int direita = 2 * i + 2;
+
+    if (esquerda < heap.tamanho && heap.pereciveis[esquerda] < heap.pereciveis[menor])
+        menor = esquerda;
+
+    if (direita < heap.tamanho && heap.pereciveis[direita] < heap.pereciveis[menor])
+        menor = direita;
+
+    if (menor != i) {
+        std::swap(heap.pereciveis[i], heap.pereciveis[menor]);
+        heapify(heap, menor);
+    }
+}
+
+void siftup(minHeap &heap, int i) {
+    while (i > 0 && heap.pereciveis[(i - 1) / 2] > heap.pereciveis[i]) {
+        std::swap(heap.pereciveis[i], heap.pereciveis[(i - 1) / 2]);
+        i = (i - 1) / 2;
+    }
+}
+
+export bool removerHeap(minHeap &heap) {
+    if (heap.tamanho == 0) {
+        return false;
+    }
+    heap.pereciveis[0] = heap.pereciveis[heap.tamanho - 1];
+    heap.tamanho--;
+    heapify(heap, 0);
+    return true;
+}
+
+export bool inserir(minHeap &heap, int valor) {
+    if (heap.tamanho == heap.capacidade) {
+        return false;
+    }
+    heap.tamanho++;
+    heap.pereciveis[heap.tamanho - 1] = valor;
+    siftup(heap, heap.tamanho - 1);
+    return true;
+}
+
+export void descartarVencidos(minHeap &heap, int turnoAtual) {
+    if (heap.tamanho == 0) {
+        return;
+    }
+    while (heap.pereciveis[0] <= turnoAtual) {
+        removerHeap(heap);
+        if (heap.tamanho == 0) {
+            break;
+        }
+    }
+}
+==> TADs/receita.cppm <==
+module;
+#include <memory>
+#include <string>
+export module TAD_receita;
+using std::string;
+using std::unique_ptr;
+using std::make_unique;
+
+struct nodoReceita {
+    char Ingrediente;
+    unique_ptr<nodoReceita> prox;
+};
+
+export struct Receita {
+    unique_ptr<nodoReceita> Ini;
+};
+
+/* FUNÇÕES INTERNAS */
+
+export void inserirInicio(Receita &receita, char ingrediente) {
+    auto novo = make_unique<nodoReceita>(ingrediente, std::move(receita.Ini));
+    receita.Ini = std::move(novo);
+}
+
+export void inserirFim(Receita &receita, char ingrediente) {
+    auto novo = make_unique<nodoReceita>(ingrediente, nullptr);
+    nodoReceita* aux = receita.Ini.get();
+    if (aux == nullptr) {
+        receita.Ini = std::move(novo);
+        return;
+    }
+
+    while (aux->prox != nullptr) {
+        aux = aux->prox.get();
+    }
+
+    aux->prox = std::move(novo);
+}
+
+export void removerFim(Receita &receita) {
+    nodoReceita* aux = receita.Ini.get();
+
+    if (aux == nullptr) return;
+
+    if (aux->prox == nullptr) {
+        receita.Ini = nullptr;
+        return;
+    }
+
+    while (aux->prox->prox != nullptr) {
+        aux = aux->prox.get();
+    }
+
+    aux->prox = nullptr;
+}
+
+/* FUNÇÕES EXPORTADAS */
+
+export Receita construirReceita(const string &resultadoBusca) {
+    Receita receita;
+    for (char ingrediente : resultadoBusca) {
+        inserirFim(receita, ingrediente);
+    }
+    return receita;
+}
+
+export int tamanho(const Receita &receita) {
+    const nodoReceita* aux = receita.Ini.get();
+    if (aux == nullptr) return 0;
+    int contador = 0;
+
+    while (aux != nullptr) {
+        contador++;
+        aux = aux->prox.get();
+    }
+
+    return contador;
+}
+
+string stringInversaReceita(const unique_ptr<nodoReceita> &nodo) {
+    string resultado = "";
+    if(nodo->prox == nullptr) return resultado += nodo->Ingrediente;
+    resultado = stringInversaReceita(nodo->prox);
+
+    return resultado += nodo->Ingrediente;
+}
+
+export string stringReceita(const Receita &receita) {
+    if (receita.Ini == nullptr) return "";
+    return stringInversaReceita(receita.Ini);
+}
+==> src/arquivos.cppm <==
+module;
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <string>
+#include <stdexcept>
+#include "timer.hpp"
+
+export module arquivos;
+import TAD_avl;
+import TAD_lista_contigua;
+
+using namespace std;
+using std::string;
+
+export{
+    /*-------- struct e funções da AVL -----------*/
+    struct Resultado_Carregamento{
+        bool sucesso = false;
+        double tempo_carregamento = 0.0;
+        int pares_ignorados = 0;
+    };
+
+    //PROTÓTIPOS DAS FUNÇÕES INTERNAS
+    void remover_fim(string& str);
+    bool converter_codigo(const string& str, int& codigo);
+    bool receita_valida(const string& receita);
+
+    //uso de IA (Claude) para gerar a função de carregamento de pedidos e conversão de código, com base na função de carregamento de pedidos fornecida.
+    Resultado_Carregamento carregar_pedidos(const string& nome_arquivo, Avl_Pedidos& avl){
+        Resultado_Carregamento resultado;
+
+        std::ifstream arquivo(nome_arquivo);
+        if (!arquivo.is_open()) {
+            cerr << "Erro ao abrir o arquivo: " << nome_arquivo << endl;
+            return resultado;
+        }
+
+        Timer t;
+        timer_iniciar(&t);
+
+        string linha_cod, linha_receita;
+
+        while (std::getline(arquivo, linha_cod)){
+            remover_fim(linha_cod);
+            
+            if(linha_cod.empty()) continue;
+
+            if (!std::getline(arquivo, linha_receita)) {
+                resultado.pares_ignorados++;
+                break;
+            }
+            remover_fim(linha_receita);
+
+            int codigo;
+            
+            if (!converter_codigo(linha_cod, codigo) || !receita_valida(linha_receita)) {
+                resultado.pares_ignorados++;
+                continue;
+            }
+            
+            avl.raiz = inserir_pedido(avl.raiz, {codigo, linha_receita, nullptr, nullptr, 0}, avl.total_insercao, avl.total_rotacao, avl.total_comparacao, avl.menor_cod, avl.maior_cod);
+        }
+
+        resultado.tempo_carregamento = timer_parar(&t);
+        resultado.sucesso = true;
+        return resultado;
+
+    }
+
+
+    /*------------ struct e funções da Lista Contígua -----------*/
+    struct ResultadoHistorico {
+        bool ok = false;        // false se o arquivo existe mas nao pode ser aberto
+        long entradas = 0;      // entradas carregadas na lista
+        long ignoradas = 0;     // pares invalidos que foram pulados
+    } ;
+
+    ResultadoHistorico carregar_historico(const string& caminho, ListaContigua_Historico& lista) {
+        ResultadoHistorico res;
+
+        std::error_code ec;
+        if (!std::filesystem::exists(caminho, ec)) {
+            res.ok = true;      // primeira execucao: historico comeca vazio
+            return res;
+        }
+
+        std::ifstream arq(caminho);
+        if (!arq.is_open()) {
+            std::cerr << "Erro: nao foi possivel abrir o historico '" << caminho << "'\n";
+            return res;
+        }
+
+        string linha_nome, linha_pontos;
+        while (std::getline(arq, linha_nome)) {
+            remover_fim(linha_nome);
+            if (linha_nome.empty()) continue;            // linha em branco
+
+            if (!std::getline(arq, linha_pontos)) {      // nome sem pontuacao no fim
+                res.ignoradas++;
+                break;
+            }
+            remover_fim(linha_pontos);
+
+            int pontuacao = 0;
+            if (!converter_codigo(linha_pontos, pontuacao) || pontuacao < 0) {
+                res.ignoradas++;
+                continue;
+            }
+
+            NodoListaContigua novo{linha_nome, pontuacao};
+            if (!inserir_listacontigua(lista, novo, tamanho_listacontigua(lista))) {
+                res.ignoradas++;
+                continue;
+            }
+            res.entradas++;
+        }
+
+        res.ok = true;
+        return res;
+    }
+
+    bool anexar_historico(const std::string& caminho, const std::string& nome, int pontuacao) {
+        std::string limpo;
+        for (char c : nome) {
+            if (c != '\r' && c != '\n') limpo += c;
+        }
+        remover_fim(limpo);
+        if (limpo.empty() || pontuacao < 0) return false;
+
+        bool precisa_quebra = false;
+        {
+            std::ifstream leitura(caminho, std::ios::binary | std::ios::ate);
+            if (leitura.is_open() && leitura.tellg() > 0) {
+                leitura.seekg(-1, std::ios::end);
+                char ultimo = 0;
+                leitura.get(ultimo);
+                precisa_quebra = (ultimo != '\n');
+            }
+        }
+
+        std::ofstream saida(caminho, std::ios::app);
+        if (!saida.is_open()) {
+            std::cerr << "Erro: nao foi possivel gravar no historico '" << caminho << "'\n";
+            return false;
+        }
+        if (precisa_quebra) saida << '\n';
+        saida << limpo << '\n' << pontuacao << '\n';
+        return saida.good();
+    }
+}
+
+void remover_fim(string& str) {
+    while (!str.empty() && (str.back() == '\r' || str.back() == ' ' || str.back() == '\t' || str.back() == '\n')) {
+        str.pop_back();
+    }
+}
+
+bool converter_codigo(const string& str, int& codigo) {
+    try {
+        size_t pos;
+        codigo = std::stoi(str, &pos);
+
+        if (pos != str.length()) {
+            return false; //caracteres não numéricos na string
+        }
+
+    } catch (const std::invalid_argument&) {
+        return false; //a string não é um número válido
+
+    } catch (const std::out_of_range&) {
+        return false; //número fora do intervalo representável por um int
+
+    }
+    return true;
+}
+
+bool receita_valida(const string& receita) {
+    return receita.size() >= 5 && receita.size() <= 7;
+}
+==> src/coleta_metricas.cppm <==
+module;
+
+export module coleta_metricas;
+
+// =====================================================================
+// coleta_metricas: copia os contadores que vivem dentro das estruturas
+// (Avl_Pedidos, HashCache_Pedidos, ListaContigua_Historico) para o
+// Metricas. Fica separado de "metricas" para que esse módulo não precise
+// importar as estruturas (evita dependência circular).
+// =====================================================================
+
+import TAD_avl;
+import TAD_hash_cache;
+import TAD_lista_contigua;
+import metricas;
+
+export {
+
+// Chame logo depois do carregamento (AVL + histórico), antes de gravar_log.
+// O tempo de carga (avl_tempo_carga) e o flag 'carregou' são preenchidos
+// no main, junto do Timer.
+void coletar_metricas_carga(const Avl_Pedidos& avl,
+                            const ListaContigua_Historico& hist,
+                            Metricas& m) {
+    m.avl_nos       = avl.total_insercao;
+    m.avl_rotacoes  = avl.total_rotacao;
+    m.avl_altura    = avl_altura(avl.raiz);   // função de altura (vazia = 0, raiz = 1)
+    m.hist_entradas = hist.tamanho;
+}
+
+// Chame ao encerrar a partida (vitória, derrota ou saída voluntária),
+// antes de gravar_log.
+// avl_tempo_buscas NÃO é copiado aqui: ele já é acumulado direto em
+// g_metricas, com o Timer, no ponto onde a busca na AVL é chamada.
+void coletar_metricas_partida(const Avl_Pedidos& avl,
+                              const HashCache_Pedidos& hash,
+                              Metricas& m) {
+    m.avl_comparacoes = avl.total_comparacao;
+    m.avl_buscas      = hash.miss;   // cada miss gera exatamente uma busca na AVL
+
+    m.hash_m          = hash.m;
+    m.hash_n          = hash.n;
+    m.hash_hits       = hash.hit;
+    m.hash_miss       = hash.miss;
+    m.hash_colisoes   = hash.colisoes;
+
+    int hits_int = static_cast<int>(hash.hit);
+    int misses_int = static_cast<int>(hash.miss);
+    m.hash_taxa_acerto = static_cast<double>(taxa_acerto(hits_int, misses_int)) * 100.0;
+
+    m.partida_terminou = true;
+}
+
+} // export
+==> src/gameplay.cppm <==
+module;
+
+#include <memory>
+#include <utility>
+#include <string>
+#include <random>
+#include "timer.hpp"
+#include <iostream>
+
+export module gameplay;
+
+import TAD_minheap;
+import TAD_cliente;
+import TAD_montagem;
+import TAD_receita;
+import TAD_avl;
+import TAD_hash_cache;
+import metricas;
+import renderizacao;
+
+using std::string;
+using std::uniform_int_distribution;
+
+static std::mt19937 gen(std::random_device{}());
+static uniform_int_distribution<> dis_paciencia(10, 20);
+
+constexpr int VAL_CARNE        = 6;  // turnos até vencer
+constexpr int VAL_OVO          = 5;
+constexpr int VAL_BACON        = 8;
+constexpr int REPOSICAO_PERENE = 4;  // unidades ganhas ao repor perene
+constexpr int MAX_PERDIDOS     = 3;  // limite de clientes perdidos (Game Over)
+
+export struct Estoque {
+    minHeap carne;   
+    minHeap ovo;     
+    minHeap bacon;   
+
+    int queijoPrato = 0;
+    int queijoCheddar = 0;
+    int cebola = 0;
+    int tomate = 0;
+};
+
+export struct EstadoJogo {
+    Estoque estoque;
+    FilaClientes fila;
+    Pilha montagem;
+
+    int turnoAtual = 1;
+    int pontuacao = 0;
+    int clientesAtendidos = 0;
+    int clientesPerdidos = 0;
+    static constexpr int pacienciaMax = 20;
+    bool rodando = true;
+    string feedback = "Bem-vindo ao Dado-Burguer!";
+};
+
+/* FUNÇÕES NÃO EXPORTADAS (auxiliares) */
+
+Receita sortearReceita(Avl_Pedidos &avl, HashCache_Pedidos &cache, Metricas &metricas) {
+    uniform_int_distribution<> dis(avl.menor_cod, avl.maior_cod);
+    int sorteado;
+    string stringret;
+    Timer t;
+    
+    do{
+        sorteado = dis(gen);
+        stringret = buscar_hash(&cache, sorteado);
+        if(!stringret.empty()) return construirReceita(stringret);
+
+        timer_iniciar(&t);
+        stringret = buscar_pedido(avl.raiz, sorteado, avl.total_comparacao);
+        metricas.avl_tempo_buscas += timer_parar(&t);
+    }while(stringret.empty());
+
+    inserir_hash(&cache, sorteado, stringret);
+    return construirReceita(stringret);
+}
+
+DadosTela montarDadosTela(const EstadoJogo &jogo) {
+    DadosTela dados;
+    dados.turnoAtual = jogo.turnoAtual;
+    dados.pontuacao = jogo.pontuacao;
+    dados.clientesAtendidos = jogo.clientesAtendidos;
+    dados.clientesNaFila = jogo.fila.tamanho;
+    dados.pacienciaMax = jogo.pacienciaMax;
+
+    Cliente *atual = visualizarInicio(jogo.fila);
+    if(atual != nullptr) {
+        dados.pacienciaAtual = atual->paciencia;
+        dados.textoReceita = stringReceita(atual->pedido);
+    }
+
+    dados.textoMontagem = stringPilha(jogo.montagem);
+
+    dados.baconQtd = jogo.estoque.bacon.tamanho;
+    dados.carneQtd = jogo.estoque.carne.tamanho;
+    dados.ovoQtd = jogo.estoque.ovo.tamanho;
+
+    dados.carneProxVenc = (jogo.estoque.carne.tamanho > 0) ? (jogo.estoque.carne.pereciveis[0] - jogo.turnoAtual) : -1;
+    dados.ovoProxVenc = (jogo.estoque.ovo.tamanho > 0) ? (jogo.estoque.ovo.pereciveis[0] - jogo.turnoAtual) : -1;
+    dados.baconProxVenc = (jogo.estoque.bacon.tamanho > 0) ? (jogo.estoque.bacon.pereciveis[0] - jogo.turnoAtual) : -1;
+    
+    dados.queijoPrato = jogo.estoque.queijoPrato;
+    dados.queijoCheddar = jogo.estoque.queijoCheddar;
+    dados.cebola = jogo.estoque.cebola;
+    dados.tomate = jogo.estoque.tomate;
+
+    return dados;
+}
+
+void inicializarPartida(EstadoJogo& jogo, Avl_Pedidos& avl, HashCache_Pedidos& cache, Metricas& metricas){
+    iniciarMontagem(jogo.montagem);
+
+    jogo.estoque.queijoPrato = 30;
+    jogo.estoque.queijoCheddar = 30;
+    jogo.estoque.cebola = 30;
+    jogo.estoque.tomate = 30;
+
+    int qtdClientes = dis_paciencia(gen);
+    for(int i = 0; i < qtdClientes; i++){
+        enfileirar(jogo.fila, sortearReceita(avl, cache, metricas), dis_paciencia(gen));
+    }
+}
+
+bool prepararPerecivel(EstadoJogo& jogo, char tipo) {
+    bool ok = false;
+    string nome;
+
+    switch (tipo) {
+        case 'c':
+            ok = inserir(jogo.estoque.carne, jogo.turnoAtual + VAL_CARNE);
+            nome = "Carne";
+            break;
+        case 'o':
+            ok = inserir(jogo.estoque.ovo, jogo.turnoAtual + VAL_OVO);
+            nome = "Ovo";
+            break;
+        case 'b':
+            ok = inserir(jogo.estoque.bacon, jogo.turnoAtual + VAL_BACON);
+            nome = "Bacon";
+            break;
+        default:
+            return false;
+    }
+
+    if (!ok) {
+        jogo.feedback = "Chapa lotada para " + nome + " (max 8)!";
+        return false;
+    }
+
+    jogo.feedback = nome + " preparada na chapa!";
+    return true;
+}
+
+bool reporPerene(EstadoJogo& jogo, char tipo) {
+    switch (tipo) {
+        case 'q':
+            jogo.estoque.queijoPrato += REPOSICAO_PERENE;
+            jogo.feedback = "Queijo prato reposto (+" + std::to_string(REPOSICAO_PERENE) + ").";
+            return true;
+        case 'd':
+            jogo.estoque.queijoCheddar += REPOSICAO_PERENE;
+            jogo.feedback = "Cheddar reposto (+" + std::to_string(REPOSICAO_PERENE) + ").";
+            return true;
+        case 'e':
+            jogo.estoque.cebola += REPOSICAO_PERENE;
+            jogo.feedback = "Cebola reposta (+" + std::to_string(REPOSICAO_PERENE) + ").";
+            return true;
+        case 't':
+            jogo.estoque.tomate += REPOSICAO_PERENE;
+            jogo.feedback = "Tomate reposto (+" + std::to_string(REPOSICAO_PERENE) + ").";
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool montarIngrediente(EstadoJogo& jogo, char ing) {
+    // Evita consumir estoque se o pao topo ('z') ja fechou o lanche
+    string pilhaAtual = stringPilha(jogo.montagem);
+    if (!pilhaAtual.empty() && pilhaAtual[0] == 'z') {
+        jogo.feedback = "Lanche ja fechado com pao topo! Entregue [Enter] ou desfaça [Backspace].";
+        return false;
+    }
+
+    switch (ing) {
+        case 'c':
+            if (!removerHeap(jogo.estoque.carne)) {
+                jogo.feedback = "Sem carne pronta na chapa! Aperte [1] para preparar.";
+                return false;
+            }
+            break;
+        case 'o':
+            if (!removerHeap(jogo.estoque.ovo)) {
+                jogo.feedback = "Sem ovo pronto na chapa! Aperte [2] para preparar.";
+                return false;
+            }
+            break;
+        case 'b':
+            if (!removerHeap(jogo.estoque.bacon)) {
+                jogo.feedback = "Sem bacon pronto na chapa! Aperte [3] para preparar.";
+                return false;
+            }
+            break;
+        case 'q':
+            if (jogo.estoque.queijoPrato <= 0) {
+                jogo.feedback = "Sem queijo prato! Aperte [4] para repor.";
+                return false;
+            }
+            jogo.estoque.queijoPrato--;
+            break;
+        case 'd':
+            if (jogo.estoque.queijoCheddar <= 0) {
+                jogo.feedback = "Sem cheddar! Aperte [5] para repor.";
+                return false;
+            }
+            jogo.estoque.queijoCheddar--;
+            break;
+        case 'e':
+            if (jogo.estoque.cebola <= 0) {
+                jogo.feedback = "Sem cebola! Aperte [6] para repor.";
+                return false;
+            }
+            jogo.estoque.cebola--;
+            break;
+        case 't':
+            if (jogo.estoque.tomate <= 0) {
+                jogo.feedback = "Sem tomate! Aperte [7] para repor.";
+                return false;
+            }
+            jogo.estoque.tomate--;
+            break;
+        case 'z':
+            // Pao topo e livre (nao consome estoque)
+            break;
+        default:
+            return false;
+    }
+
+    empilhar(jogo.montagem, ing);
+    jogo.feedback = string("Ingrediente '") + ing + "' empilhado!";
+    return true;
+}
+
+bool desfazerIngrediente(EstadoJogo& jogo) {
+    if (stringPilha(jogo.montagem).empty()) {
+        jogo.feedback = "A montagem ja esta vazia (apenas pao base).";
+        return false;
+    }
+
+    desempilhar(jogo.montagem);
+    jogo.feedback = "Ultimo ingrediente removido da montagem.";
+    return true; // troque para false se nao quiser cobrar turno ao desfazer
+}
+
+bool entregarPedido(EstadoJogo& jogo) {
+    Cliente* atual = visualizarInicio(jogo.fila);
+    if (atual == nullptr) {
+        jogo.rodando = false;
+        return false;
+    }
+
+    if (comparar(atual->pedido, jogo.montagem)) {
+        int ganho = 100 + atual->paciencia * 10;
+        jogo.pontuacao += ganho;
+        jogo.clientesAtendidos++;
+
+        desenfileirar(jogo.fila);
+        iniciarMontagem(jogo.montagem);
+
+        if (jogo.fila.tamanho == 0) {
+            jogo.feedback = "Expediente concluido! Todos os clientes foram atendidos!";
+            jogo.rodando = false;
+        } else {
+            jogo.feedback = "Pedido entregue com sucesso! +" + std::to_string(ganho) + " pts.";
+        }
+        return true;
+    }
+
+    jogo.feedback = "Pedido incorreto! Use [Backspace] para corrigir e tente novamente.";
+    return true; // penalidade de 1 turno por entrega errada
+}
+
+void avancarTurno(EstadoJogo& jogo) {
+    if (!jogo.rodando) return;
+
+    jogo.turnoAtual++;
+    descartarVencidos(jogo.estoque.carne, jogo.turnoAtual);
+    descartarVencidos(jogo.estoque.ovo,   jogo.turnoAtual);
+    descartarVencidos(jogo.estoque.bacon, jogo.turnoAtual);
+
+    Cliente* atual = visualizarInicio(jogo.fila);
+    if (atual != nullptr) {
+        atual->paciencia--;
+        if (atual->paciencia <= 0) {
+            desenfileirar(jogo.fila);
+            iniciarMontagem(jogo.montagem);
+            jogo.clientesPerdidos++;
+            jogo.feedback = "Cliente perdeu a paciencia e foi embora! ("
+                          + std::to_string(jogo.clientesPerdidos) + "/"
+                          + std::to_string(MAX_PERDIDOS) + ")";
+        }
+    }
+
+    if (jogo.clientesPerdidos >= MAX_PERDIDOS || jogo.fila.tamanho == 0) {
+        jogo.rodando = false;
+    }
+}
+
+void processarTecla(EstadoJogo& jogo, char tecla) {
+    bool gastouTurno = false;
+
+    switch (tecla) {
+        // Preparar perecíveis na chapa (Min-Heap)
+        case '1': gastouTurno = prepararPerecivel(jogo, 'c'); break;
+        case '2': gastouTurno = prepararPerecivel(jogo, 'o'); break;
+        case '3': gastouTurno = prepararPerecivel(jogo, 'b'); break;
+
+        // Repor perenes
+        case '4': gastouTurno = reporPerene(jogo, 'q'); break;
+        case '5': gastouTurno = reporPerene(jogo, 'd'); break;
+        case '6': gastouTurno = reporPerene(jogo, 'e'); break;
+        case '7': gastouTurno = reporPerene(jogo, 't'); break;
+
+        // Montar hambúrguer (Pilha)
+        case 'c': case 'C': gastouTurno = montarIngrediente(jogo, 'c'); break;
+        case 'o': case 'O': gastouTurno = montarIngrediente(jogo, 'o'); break;
+        case 'b': case 'B': gastouTurno = montarIngrediente(jogo, 'b'); break;
+        case 'q': case 'Q': gastouTurno = montarIngrediente(jogo, 'q'); break;
+        case 'd': case 'D': gastouTurno = montarIngrediente(jogo, 'd'); break;
+        case 'e': case 'E': gastouTurno = montarIngrediente(jogo, 'e'); break;
+        case 't': case 'T': gastouTurno = montarIngrediente(jogo, 't'); break;
+        case 'z': case 'Z': gastouTurno = montarIngrediente(jogo, 'z'); break;
+
+        // Desfazer (Linux = 127, Windows = '\b')
+        case 127:
+        case '\b':
+            gastouTurno = desfazerIngrediente(jogo);
+            break;
+
+        // Entregar (Linux = '\n', Windows = '\r')
+        case '\n':
+        case '\r':
+            gastouTurno = entregarPedido(jogo);
+            break;
+
+        // Sair (ESC ou 0)
+        case 27:
+        case '0':
+            jogo.rodando = false;
+            return;
+
+        default:
+            return;
+    }
+
+    if (gastouTurno) {
+        avancarTurno(jogo);
+    }
+}
+
+/* FUNÇÕES EXPORTADAS */
+// no fim só foi uma baita unica funcao, mais facil
+export int executarGameplay(Avl_Pedidos& avl,
+                            HashCache_Pedidos& cache,
+                            Metricas& metricas,
+                            const PacoteSprites& sprites) {
+    EstadoJogo jogo;
+    inicializarPartida(jogo, avl, cache, metricas);
+
+    ativarTerminal();
+
+    Timer timerAnim;
+    timer_iniciar(&timerAnim);
+    int tickAnim = 0;
+    bool precisaRedesenhar = true;
+
+    while (jogo.rodando) {
+        // Anima sprites ~4 vezes por segundo (independente do teclado)
+        if (timer_parar(&timerAnim) >= 0.25) {
+            tickAnim++;
+            timer_iniciar(&timerAnim);
+            precisaRedesenhar = true;
+        }
+
+        if (precisaRedesenhar) {
+            DadosTela dados = montarDadosTela(jogo);
+            renderizarGameplay(dados, sprites, tickAnim);
+            precisaRedesenhar = false;
+        }
+
+        char tecla = lerTecla(50);
+        if (tecla != '\0') {
+            processarTecla(jogo, tecla);
+            precisaRedesenhar = true;
+        }
+    }
+
+    desativarTerminal();
+    return jogo.pontuacao;
+}
+==> src/metricas.cppm <==
+module;
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+
+export module metricas;
+
+// =====================================================================
+// metricas: guarda todas as medições exigidas (seção 5 da especificação)
+// e grava o medicoes.log. Este módulo NÃO importa AVL, hash nem histórico
+// (evita dependência circular). A cópia e o cálculo das métricas
+// vindas das estruturas são feitos no módulo coleta_metricas.
+// =====================================================================
+
+export {
+
+    struct Metricas {
+        // --- AVL: carregamento (§5.1) ---
+        long long avl_nos          = 0;
+        int       avl_altura       = 0;      // árvore vazia = 0, só raiz = 1
+        long long avl_rotacoes     = 0;      // rotação dupla = 2 simples
+        double    avl_tempo_carga   = 0.0;    // segundos
+
+        // --- Histórico: contexto (§5.1) ---
+        int       hist_entradas    = 0;
+
+        // --- AVL: buscas durante a partida (§5.2) ---
+        long long avl_buscas       = 0;
+        long long avl_comparacoes  = 0;
+        double    avl_tempo_buscas  = 0.0;    // acumulado, em segundos
+
+        // --- Tabela hash (§5.2) ---
+        int       hash_m           = 0;      // tamanho da tabela
+        long long hash_n           = 0;      // entradas ocupadas
+        long long hash_hits        = 0;
+        long long hash_miss        = 0;
+        long long hash_colisoes    = 0;
+        double    hash_taxa_acerto = 0.0;    // em porcentagem (0.0 a 100.0)
+
+        // --- Ordenação do histórico (atualizada a cada acesso à tela) ---
+        int       ord_tamanho      = 0;
+        int       ord_acessos      = 0;
+        double    ord_tempo_nome    = -1.0;   // -1 = ainda não medido
+        double    ord_tempo_pontos  = -1.0;
+
+        // --- controle de quais blocos já podem aparecer no log ---
+        bool      carregou        = false;  // true ao fim do carregamento
+        bool      partida_terminou = false;  // true ao encerrar a partida
+    };
+
+// Instância global compartilhada por todos os módulos.
+Metricas g_metricas;
+
+// Zera as métricas de partida. Chame ao INICIAR cada partida.
+// Não mexe nas métricas de carregamento nem nas de ordenação.
+void resetar_metricas_partida(Metricas& m) {
+    m.avl_buscas       = 0;
+    m.avl_comparacoes  = 0;
+    m.avl_tempo_buscas  = 0.0;
+    m.hash_n           = 0;
+    m.hash_hits        = 0;
+    m.hash_miss        = 0;
+    m.hash_colisoes    = 0;
+    m.hash_taxa_acerto = 0.0;
+    m.partida_terminou = false;
+}
+
+void escrever_relatorio(std::ostream& out, const Metricas& m, const char* algoritmo){
+
+    auto flags = out.flags();
+    auto prec  = out.precision();
+
+    out << std::fixed;
+    out << "=== RELATORIO DE DESEMPENHO ===\n";
+
+    if (m.carregou) {
+        out << "-- AVL: carregamento --\n"
+            << "Nos inseridos: " << m.avl_nos << "\n"
+            << "Altura resultante: " << m.avl_altura << "\n"
+            << "Rotacoes (insercao): " << m.avl_rotacoes << "\n"
+            << "Tempo de carregamento: " << std::setprecision(6)
+            << m.avl_tempo_carga << " s\n"
+            << "-- Historico: carregamento --\n"
+            << "Entradas carregadas: " << m.hist_entradas << "\n";
+    }
+
+    if (m.partida_terminou) {
+        double media = 0.0;
+
+
+        if (m.avl_buscas > 0) {
+            media = static_cast<double>(m.avl_comparacoes) / m.avl_buscas;
+        } else {
+            media = 0.0;
+        }
+
+        double tempo_medio_busca = 0.0;
+        if (m.avl_buscas > 0) {
+            tempo_medio_busca = m.avl_tempo_buscas / static_cast<double>(m.avl_buscas);
+        } else {
+            tempo_medio_busca = 0.0;
+        }
+
+        double lambda = 0.0;
+        if (m.hash_m > 0) {
+            lambda = static_cast<double>(m.hash_n) / m.hash_m;
+        } else {
+            lambda = 0.0;
+        }
+
+        out << "-- AVL: buscas durante a partida --\n"
+            << "Total de buscas: " << m.avl_buscas << "\n"
+            << "Total de comparacoes: " << m.avl_comparacoes << "\n"
+            << "Media de comparacoes por busca: " << std::setprecision(2)
+            << media << "\n"
+            << "Tempo total acumulado: " << std::setprecision(6)
+            << m.avl_tempo_buscas << " s\n"
+            << "-- Tabela hash --\n"
+            << "Tamanho (m): " << m.hash_m << "\n"
+            << "Entradas ocupadas (n): " << m.hash_n << "\n"
+            << "Fator de carga (lambda): " << std::setprecision(4)
+            << lambda << "\n"
+            << "Total de hits: " << m.hash_hits << "\n"
+            << "Total de misses: " << m.hash_miss << "\n"
+            << "Taxa de acerto: " << std::setprecision(1)
+            << m.hash_taxa_acerto << "%\n"
+            << "Total de colisoes: " << m.hash_colisoes << "\n";
+    }
+
+    if (m.ord_acessos > 0) {
+        out << "-- Ordenacao do historico (ao acessar Historico) --\n"
+            << "Tamanho: " << m.ord_tamanho << " entradas\n"
+            << "Acessos ao Historico: " << m.ord_acessos << "\n";
+        if (m.ord_tempo_nome >= 0) {
+            out << algoritmo << " (por nome): " << std::setprecision(6)
+                << m.ord_tempo_nome << " s\n";
+        }
+        if (m.ord_tempo_pontos >= 0) {
+            out << algoritmo << " (por pontuacao): " << std::setprecision(6)
+                << m.ord_tempo_pontos << " s\n";
+        }
+    }
+
+    out.flags(flags);
+    out.precision(prec);
+
+    out << "================================\n";
+}
+
+// Reescreve o medicoes.log inteiro (cria ou sobrescreve). Chame:
+//  1) após o carregamento, 2) ao fim de cada partida,
+//  3) a cada acesso à tela de Histórico.
+// Devolve false se não conseguiu abrir o arquivo.
+bool gravar_log(const Metricas& m, const char* algoritmo = "Merge Sort") {
+    std::ofstream out("medicoes.log");
+    if (!out.is_open()) {
+        return false;
+    }
+
+    escrever_relatorio(out, m, algoritmo);    
+    return true;
+}
+
+void mostrar_relatorio(const Metricas& m, const char* algoritmo = "Merge Sort") {
+    escrever_relatorio(std::cout, m, algoritmo);
+}
+
+} // export
+==> src/ordenacao.cppm <==
+module;
+#include <memory>
+
+export module ordenacao_merge;
+
+import TAD_lista_contigua;
+
+export{
+    enum class CriterioOrdenacao {
+        POR_PONTOS,
+        POR_NOME
+    };
+
+    //criterio me diz se a ordenação é por pontuação ou por nome
+    void merge(ListaContigua_Historico& lista, ListaContigua_Historico& aux, int inicio, int meio, int fim, CriterioOrdenacao criterio) {
+        for (int t = inicio; t <= fim; ++t) {
+            aux.elementos[t] = lista.elementos[t];
+        }
+
+        int i = inicio;
+        int j = meio + 1;
+        int k = inicio;
+
+        if (criterio == CriterioOrdenacao::POR_PONTOS) { // decrescente por pontuação
+            while (i <= meio && j <= fim) {
+                if (aux.elementos[i].pontuacao >= aux.elementos[j].pontuacao) {
+                    lista.elementos[k++] = aux.elementos[i++];
+                } else {
+                    lista.elementos[k++] = aux.elementos[j++];
+                }
+            }
+        } else { //ordenar por nome
+            while (i <= meio && j <= fim) {
+                if (aux.elementos[i].nome <= aux.elementos[j].nome) {
+                    lista.elementos[k++] = aux.elementos[i++];
+                } else {
+                    lista.elementos[k++] = aux.elementos[j++];
+                }
+            }
+        }
+        
+        while (i <= meio) {
+            lista.elementos[k++] = aux.elementos[i++];
+        }
+        while (j <= fim) {
+            lista.elementos[k++] = aux.elementos[j++];
+        }
+    }
+
+    void merge_rec(ListaContigua_Historico& lista, ListaContigua_Historico& aux, int inicio, int fim, CriterioOrdenacao criterio) {
+        if(inicio >= fim) {
+            return;
+        }
+        int meio = inicio + (fim - inicio) / 2;
+        merge_rec(lista, aux, inicio, meio, criterio);
+        merge_rec(lista, aux, meio + 1, fim, criterio);
+        merge(lista, aux, inicio, meio, fim, criterio);
+    }
+
+    void merge_sort(ListaContigua_Historico& lista, CriterioOrdenacao criterio) {
+        if (lista.tamanho <= 1) {
+            return;
+        }
+
+        ListaContigua_Historico aux;
+        aux.tamanho = lista.tamanho;
+        aux.capacidade = lista.capacidade;
+        aux.elementos = std::make_unique<NodoListaContigua[]>(aux.capacidade);
+
+        merge_rec(lista, aux, 0, lista.tamanho - 1, criterio);
+    }
+}
+==> src/renderizacao.cppm <==
+/* Arquivo onde a IA fez muito mais que nós :( */
+
+module;
+
+#ifdef _WIN32
+    #include <conio.h>
+    #include <windows.h>
+#else
+    #include <termios.h>
+    #include <unistd.h>
+    #include <poll.h>
+#endif
+
+#include <fstream>
+#include <iostream>
+#include <string>
+
+export module renderizacao;
+
+using std::string;
+
+/* ==================== STRUCTS EXPORTADAS ==================== */
+
+export struct Frame {
+    static constexpr int MAX_LINHAS = 30;
+    string linhas[MAX_LINHAS];
+    int altura = 0;
+    int largura = 0; // largura visual em colunas (ignora códigos ANSI)
+};
+
+export struct Animacao {
+    static constexpr int MAX_FRAMES = 20;
+    Frame frames[MAX_FRAMES];
+    int totalFrames = 0;
+};
+
+export struct PacoteSprites {
+    Animacao chapa;
+    Animacao clienteCalmo;
+    Animacao clienteBravo;
+    Animacao logo;
+};
+
+// Pacote de dados puros que o gameplay.cppm preenche a cada quadro
+// (mantém a renderização 100% desacoplada dos TADs)
+export struct DadosTela {
+    int turnoAtual = 1;
+    int pontuacao = 0;
+    int clientesAtendidos = 0;
+    int clientesNaFila = 0;
+
+    int pacienciaAtual = 0;
+    int pacienciaMax = 10;
+
+    string textoReceita;   // ordem topo -> base
+    string textoMontagem;  // ordem topo -> base
+
+    // Perecíveis: proxVenc = turnos restantes para o próximo estragar (-1 se vazio)
+    int carneQtd = 0;
+    int carneProxVenc = -1;
+    int ovoQtd = 0;
+    int ovoProxVenc = -1;
+    int baconQtd = 0;
+    int baconProxVenc = -1;
+
+    // Perenes
+    int queijoPrato = 0;
+    int queijoCheddar = 0;
+    int cebola = 0;
+    int tomate = 0;
+
+    string feedback;
+};
+
+/* ==================== CONTROLE DO TERMINAL ==================== */
+
+#ifndef _WIN32
+static termios g_termiosOrig;
+static bool g_rawAtivo = false;
+#endif
+
+export void ativarTerminal() {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD modo = 0;
+    if (GetConsoleMode(hOut, &modo)) {
+        SetConsoleMode(hOut, modo | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    }
+#else
+    if (!g_rawAtivo) {
+        tcgetattr(STDIN_FILENO, &g_termiosOrig);
+        termios raw = g_termiosOrig;
+        raw.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+        g_rawAtivo = true;
+    }
+#endif
+    std::cout << "\033[?25l\033[2J\033[H" << std::flush;
+}
+
+export void desativarTerminal() {
+#ifndef _WIN32
+    if (g_rawAtivo) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &g_termiosOrig);
+        g_rawAtivo = false;
+    }
+#endif
+    std::cout << "\033[?25h\033[0m" << std::flush;
+}
+
+export char lerTecla(int ms) {
+#ifdef _WIN32
+    if (_kbhit()) {
+        return static_cast<char>(_getch());
+    }
+    Sleep(ms);
+    return '\0';
+#else
+    pollfd pfd{STDIN_FILENO, POLLIN, 0};
+    if (poll(&pfd, 1, ms) > 0) {
+        char c = '\0';
+        if (read(STDIN_FILENO, &c, 1) == 1) {
+            return c;
+        }
+    }
+    return '\0';
+#endif
+}
+
+/* ==================== FUNÇÕES AUXILIARES INTERNAS ==================== */
+
+int larguraVisual(const string& s) {
+    int colunas = 0;
+    bool emAnsi = false;
+
+    for (unsigned char c : s) {
+        if (c == '\033') {
+            emAnsi = true;
+            continue;
+        }
+        if (emAnsi) {
+            if (c == 'm') emAnsi = false;
+            continue;
+        }
+        // Ignora bytes de continuação UTF-8 (10xxxxxx)
+        if ((c & 0xC0) != 0x80) {
+            colunas++;
+        }
+    }
+    return colunas;
+}
+
+string ajustarColuna(const string& linha, int larguraAlvo) {
+    int faltam = larguraAlvo - larguraVisual(linha);
+    string out = linha + "\033[0m";
+    if (faltam > 0) {
+        out.append(static_cast<size_t>(faltam), ' ');
+    }
+    return out;
+}
+
+string decodificarAnsi(const string& linha) {
+    string out;
+    out.reserve(linha.size());
+    for (size_t i = 0; i < linha.size(); ++i) {
+        if (i + 3 < linha.size() && linha.compare(i, 4, "\\033") == 0) {
+            out += '\033';
+            i += 3;
+        } else {
+            out += linha[i];
+        }
+    }
+    return out;
+}
+
+Frame juntarLadoALado(const Frame& esq, const Frame& dir, int espacoEntre = 3) {
+    Frame resultado;
+    resultado.altura = (esq.altura > dir.altura) ? esq.altura : dir.altura;
+    if (resultado.altura > Frame::MAX_LINHAS) {
+        resultado.altura = Frame::MAX_LINHAS;
+    }
+    resultado.largura = esq.largura + espacoEntre + dir.largura;
+
+    string separador(static_cast<size_t>(espacoEntre), ' ');
+
+    for (int i = 0; i < resultado.altura; ++i) {
+        string lEsq = (i < esq.altura) ? esq.linhas[i] : "";
+        string lDir = (i < dir.altura) ? dir.linhas[i] : "";
+
+        resultado.linhas[i] = ajustarColuna(lEsq, esq.largura)
+                            + separador
+                            + ajustarColuna(lDir, dir.largura);
+    }
+    return resultado;
+}
+
+const Frame& pegarFrame(const Animacao& anim, int tickAnim) {
+    static const Frame vazio;
+    if (anim.totalFrames <= 0) return vazio;
+    return anim.frames[tickAnim % anim.totalFrames];
+}
+
+// Ajuste as letras abaixo para bater 100% com os caracteres de pedidos.txt
+string camadaIngrediente(char ing) {
+    switch (ing) {
+        case 'z': return "\033[38;5;215m  ╭────────────╮  \033[0m"; // Pão topo
+        case 'i': return "\033[38;5;215m  ╰────────────╯  \033[0m"; // Pão base
+        case 'c': return "\033[38;5;94m ████████████████ \033[0m";  // Carne
+        case 'b': return "\033[38;5;167m ≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈ \033[0m"; // Bacon
+        case 'o': return "\033[38;5;255m ▄▄▄▄▄\033[38;5;226m██████\033[38;5;255m▄▄▄▄▄ \033[0m"; // Ovo
+        case 'q': return "\033[38;5;220m ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ \033[0m"; // Queijo prato
+        case 'd': return "\033[38;5;208m ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ \033[0m"; // Cheddar
+        case 't': return "\033[38;5;196m ──────────────── \033[0m"; // Tomate
+        case 'e': return "\033[38;5;183m ○○○○○○○○○○○○○○○○ \033[0m"; // Cebola
+        default:  return "      [ " + string(1, ing) + " ]       ";
+    }
+}
+
+Frame montarFrameBurguer(const string& titulo, const string& ingredientes) {
+    Frame f;
+    f.altura = 16;   // mesma altura dos sprites (16 linhas)
+    f.largura = 18;  // largura fixa das camadas acima
+
+    f.linhas[0] = titulo;
+    f.linhas[1] = "\033[38;5;240m──────────────────\033[0m";
+
+    // Ancora o hambúrguer na base (acima do prato na linha 15)
+    int qtd = static_cast<int>(ingredientes.size());
+    if (qtd > 13) qtd = 13;
+
+    int linhaInicio = 15 - qtd;
+    for (int i = 0; i < qtd; ++i) {
+        f.linhas[linhaInicio + i] = camadaIngrediente(ingredientes[static_cast<size_t>(i)]);
+    }
+
+    f.linhas[15] = "\033[38;5;245m ════════════════ \033[0m"; // Prato
+    return f;
+}
+
+string formatarPerecivel(const string& nome, int qtd, int proxVenc) {
+    string s = nome + ": " + std::to_string(qtd) + "/8";
+    if (qtd > 0 && proxVenc >= 0) {
+        string cor = (proxVenc <= 2) ? "\033[38;5;196m" : "\033[38;5;220m";
+        s += " (" + cor + "vence em " + std::to_string(proxVenc) + "t\033[0m)";
+    } else {
+        s += " (\033[38;5;240mvazio\033[0m)";
+    }
+    return s;
+}
+
+bool carregarAnimacao(const string& caminho, Animacao& anim) {
+    std::ifstream arq(caminho);
+    if (!arq.is_open()) return false;
+
+    anim.totalFrames = 0;
+    bool lendoFrame = false;
+    string linha;
+
+    while (std::getline(arq, linha)) {
+        if (!linha.empty() && linha.back() == '\r') linha.pop_back();
+
+        if (linha == "@FRAME") {
+            if (anim.totalFrames >= Animacao::MAX_FRAMES) break;
+            lendoFrame = true;
+            anim.frames[anim.totalFrames] = Frame{};
+            continue;
+        }
+        if (linha == "@END") {
+            if (lendoFrame) {
+                anim.totalFrames++;
+                lendoFrame = false;
+            }
+            continue;
+        }
+
+        if (lendoFrame) {
+            Frame& f = anim.frames[anim.totalFrames];
+            if (f.altura < Frame::MAX_LINHAS) {
+                string dec = decodificarAnsi(linha);
+                int w = larguraVisual(dec);
+                if (w > f.largura) f.largura = w;
+                f.linhas[f.altura++] = dec;
+            }
+        }
+    }
+    return anim.totalFrames > 0;
+}
+
+// Tenta achar em "assets/..." (rodando da raiz) ou "../assets/..." (rodando de build/)
+bool carregarComFallback(const string& nomeArquivo, Animacao& anim) {
+    if (carregarAnimacao("assets/" + nomeArquivo, anim)) return true;
+    return carregarAnimacao("../assets/" + nomeArquivo, anim);
+}
+
+/* ==================== CARREGAMENTO E RENDERIZAÇÃO EXPORTADOS ==================== */
+
+export bool carregarTodosSprites(PacoteSprites& pacote) {
+    bool ok1 = carregarComFallback("chapa.txt", pacote.chapa);
+    bool ok2 = carregarComFallback("cliente_calmo.txt", pacote.clienteCalmo);
+    bool ok3 = carregarComFallback("cliente_bravo.txt", pacote.clienteBravo);
+    bool ok4 = carregarComFallback("logo.txt", pacote.logo);
+    return ok1 && ok2 && ok3 && ok4;
+}
+
+export void renderizarLogo(const PacoteSprites& sprites, int tickAnim) {
+    const Frame& f = pegarFrame(sprites.logo, tickAnim);
+    string tela = "\033[H";
+
+    for (int i = 0; i < f.altura; ++i) {
+        tela += f.linhas[i] + "\033[0m\033[K\n";
+    }
+    tela += "\033[K\n";
+    tela += "  \033[1;33m[1]\033[0m Novo Jogo   \033[1;33m[2]\033[0m Como Jogar   \033[1;33m[3]\033[0m Historico   \033[1;33m[0]\033[0m Sair\033[K\n";
+    tela += "\033[J";
+
+    std::cout << tela << std::flush;
+}
+
+export void renderizarGameplay(const DadosTela& dados,
+                               const PacoteSprites& sprites,
+                               int tickAnim) {
+    // Escolhe cliente bravo quando a paciência cair abaixo de 40%
+    bool estaBravo = (dados.pacienciaMax > 0) &&
+                     (dados.pacienciaAtual * 10 <= dados.pacienciaMax * 4);
+
+    const Frame& clienteFrame = estaBravo
+        ? pegarFrame(sprites.clienteBravo, tickAnim)
+        : pegarFrame(sprites.clienteCalmo, tickAnim);
+    const Frame& chapaFrame = pegarFrame(sprites.chapa, tickAnim);
+
+    Frame pedidoFrame   = montarFrameBurguer("\033[1;36m    [ PEDIDO ]    \033[0m", dados.textoReceita);
+    Frame montagemFrame = montarFrameBurguer("\033[1;32m   [ MONTAGEM ]   \033[0m", dados.textoMontagem);
+
+    // Junta os 4 blocos na horizontal: Cliente | Pedido | Montagem | Chapa
+    Frame centro = juntarLadoALado(pedidoFrame, montagemFrame, 2);
+    Frame painelPrincipal = juntarLadoALado(juntarLadoALado(clienteFrame, centro, 3), chapaFrame, 3);
+
+    string corPaciencia = estaBravo ? "\033[1;31m" : "\033[1;32m";
+
+    string tela = "\033[H";
+
+    // Cabeçalho
+    tela += "\033[1;33m=== DADO-BURGUER ===\033[0m   "
+            "Turno: \033[1m" + std::to_string(dados.turnoAtual) + "\033[0m"
+            "  |  Pontos: \033[1;32m" + std::to_string(dados.pontuacao) + "\033[0m"
+            "  |  Atendidos: " + std::to_string(dados.clientesAtendidos) +
+            "  |  Fila: " + std::to_string(dados.clientesNaFila) +
+            "  |  Paciencia: " + corPaciencia + std::to_string(dados.pacienciaAtual) + "\033[0m\033[K\n";
+    tela += "\033[38;5;240m" + string(116, '=') + "\033[0m\033[K\n";
+
+    // Cena principal (sprites + hambúrgueres lado a lado)
+    for (int i = 0; i < painelPrincipal.altura; ++i) {
+        tela += painelPrincipal.linhas[i] + "\033[0m\033[K\n";
+    }
+
+    // Rodapé: Estoque + Status + Controles
+    tela += "\033[38;5;240m" + string(116, '=') + "\033[0m\033[K\n";
+    tela += " \033[1mPereciveis:\033[0m  "
+            + formatarPerecivel("Carne", dados.carneQtd, dados.carneProxVenc) + "  |  "
+            + formatarPerecivel("Ovo", dados.ovoQtd, dados.ovoProxVenc) + "  |  "
+            + formatarPerecivel("Bacon", dados.baconQtd, dados.baconProxVenc) + "\033[K\n";
+    tela += " \033[1mPerenes:   \033[0m  "
+            "Prato: " + std::to_string(dados.queijoPrato) +
+            "  |  Cheddar: " + std::to_string(dados.queijoCheddar) +
+            "  |  Cebola: " + std::to_string(dados.cebola) +
+            "  |  Tomate: " + std::to_string(dados.tomate) + "\033[K\n";
+    tela += "\033[38;5;240m" + string(116, '-') + "\033[0m\033[K\n";
+    tela += " \033[1;33mStatus:\033[0m " + dados.feedback + "\033[K\n";
+    tela += " \033[38;5;245m[1/2/3] Preparar Carne/Ovo/Bacon | [Teclas] Montar | [Backspace] Desfazer | [Enter] Entregar | [Q] Sair\033[0m\033[K\n";
+    tela += "\033[J";
+
+    std::cout << tela << std::flush;
+}
+==> src/tela_historico.cppm <==
+module;
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include "timer.hpp"
+
+export module tela_historico;
+//FOI FEITO INTEIRAMENTE COM O CLAUDE - só conferi e mudei os parametros dos nomes 'padrões' para os nossos
+import TAD_lista_contigua;
+import ordenacao_merge;     
+import metricas;    // ajuste: struct Metricas e gravarLog()
+
+// Lê uma opção inteira; devolve -1 se a entrada for inválida.
+static int lerOpcao() {
+    std::string linha;
+    if (!std::getline(std::cin, linha)) return 0;   // EOF: sai da tela
+    char* fim = nullptr;
+    long v = std::strtol(linha.c_str(), &fim, 10);
+    if (linha.empty() || *fim != '\0') return -1;
+    return static_cast<int>(v);
+}
+
+// Cronometra SOMENTE a ordenação; a cópia fica fora do intervalo.
+static double ordenarEMedir(const ListaContigua_Historico& original, CriterioOrdenacao criterio, ListaContigua_Historico& copia) {
+    // SEU CÓDIGO: preencher 'copia' como cópia independente de 'original'
+    // (o 'elementos' é unique_ptr, então a cópia precisa ser feita à mão)
+
+    copia = copiar_listacontigua(original);
+
+    //timer só inicia depois da lista ja ser copiada - só conta o tempo da ordenação
+    Timer t;
+    timer_iniciar(&t);
+
+    merge_sort(copia, criterio);
+
+    return timer_parar(&t);
+}
+
+export void telaHistorico(const ListaContigua_Historico& hist, Metricas& m) {
+    int opcao;
+    do {
+        std::cout << "\n=== HISTORICO ===\n"
+                  << "Entradas: " << hist.tamanho << "\n"
+                  << "1) Ordenar por nome (A-Z)\n"
+                  << "2) Ordenar por pontuacao (decrescente)\n"
+                  << "0) Voltar ao menu\n"
+                  << "Escolha: ";
+        opcao = lerOpcao();
+
+if (opcao == 1 || opcao == 2) {
+    CriterioOrdenacao criterio;
+    if (opcao == 1) {
+        criterio = CriterioOrdenacao::POR_NOME;
+    } else {
+        criterio = CriterioOrdenacao::POR_PONTOS;
+    }
+
+    ListaContigua_Historico copia;
+    double tempo = ordenarEMedir(hist, criterio, copia);
+
+    // métricas: a medição é repetida a cada acesso
+    m.ord_tamanho = hist.tamanho;
+    m.ord_acessos++;
+    if (opcao == 1) {
+        m.ord_tempo_nome = tempo;
+    } else {
+        m.ord_tempo_pontos = tempo;
+    }
+
+    // exibição (fora do cronômetro): só as primeiras N entradas
+    const int N = 20;
+    for (int i = 0; i < copia.tamanho && i < N; ++i) {
+        std::cout << (i + 1) << ". " << copia.elementos[i].nome
+                  << " - " << copia.elementos[i].pontuacao << "\n";
+    }
+    if (copia.tamanho > N) {
+        std::cout << "... (" << (copia.tamanho - N) << " entradas omitidas)\n";
+    }
+    std::cout << "Tempo de ordenacao (Merge Sort): " << tempo << " s\n";
+
+    gravar_log(m);   // regrava o medicoes.log com o bloco atualizado
+} else if (opcao != 0) {
+    std::cout << "Opcao invalida.\n";
+}
+    } while (opcao != 0);
+}
+==> src/main.cpp <==
+// src/main.cpp
+#include <iostream>
+#include <string>
+#include "timer.hpp"
+
+// ---- Modulos do Bloco A -------------------------------------------------
+import TAD_avl;
+import TAD_hash_cache;
+import TAD_lista_contigua;
+import arquivos;
+import metricas;
+import coleta_metricas;
+import tela_historico;
+
+// ---- Modulos do Bloco B -------------------------------------------------
+import renderizacao;
+import gameplay;
+
+enum class OpcaoMenu { NOVO_JOGO, COMO_JOGAR, HISTORICO, SAIR };
+
+struct Argumentos {
+    std::string arquivo_pedidos;
+    std::string arquivo_historico;
+};
+
+static bool tratar_argumentos(int argc, char** argv, Argumentos& args) {
+    if (argc < 3) {
+        std::cerr << "Uso: " << (argc > 0 ? argv[0] : "dado_burguer")
+                  << " <arquivo_pedidos> <arquivo_historico>\n";
+        return false;
+    }
+    args.arquivo_pedidos   = argv[1];
+    args.arquivo_historico = argv[2];
+    return true;
+}
+
+static OpcaoMenu mostrar_menu(const PacoteSprites& sprites) {
+    ativarTerminal();
+
+    Timer timerAnim;
+    timer_iniciar(&timerAnim);
+    int tickAnim = 0;
+    bool precisaRedesenhar = true;
+
+    OpcaoMenu escolha = OpcaoMenu::SAIR;
+    bool escolheu = false;
+
+    while (!escolheu) {
+        if (timer_parar(&timerAnim) >= 0.25) {
+            tickAnim++;
+            timer_iniciar(&timerAnim);
+            precisaRedesenhar = true;
+        }
+
+        if (precisaRedesenhar) {
+            renderizarLogo(sprites, tickAnim);
+            precisaRedesenhar = false;
+        }
+
+        char tecla = lerTecla(50);
+        switch (tecla) {
+            case '1': escolha = OpcaoMenu::NOVO_JOGO;  escolheu = true; break;
+            case '2': escolha = OpcaoMenu::COMO_JOGAR; escolheu = true; break;
+            case '3': escolha = OpcaoMenu::HISTORICO;  escolheu = true; break;
+            case '0':
+            case 27:  escolha = OpcaoMenu::SAIR;       escolheu = true; break;
+            default:  break;
+        }
+    }
+
+    desativarTerminal();
+    std::cout << "\033[2J\033[H" << std::flush;
+    return escolha;
+}
+
+static void mostrar_como_jogar() {
+    std::cout << "\033[2J\033[H"
+              << "=== COMO JOGAR DADO-BURGUER ===\n\n"
+              << "Atenda os clientes da fila montando os lanches na ordem exata do pedido\n"
+              << "(de baixo para cima, partindo do pao base) antes que a paciencia acabe!\n\n"
+              << "-- CHAPA (Pereciveis - vencem com os turnos!) --\n"
+              << "  [1] Preparar Carne    [2] Preparar Ovo    [3] Preparar Bacon\n\n"
+              << "-- ESTOQUE (Perenes) --\n"
+              << "  [4] Repor Queijo Prato   [5] Repor Cheddar\n"
+              << "  [6] Repor Cebola         [7] Repor Tomate\n\n"
+              << "-- MONTAGEM DO LANCHE --\n"
+              << "  [C] Carne  [O] Ovo  [B] Bacon  [Q] Prato  [D] Cheddar\n"
+              << "  [E] Cebola [T] Tomate [Z] Pao Topo (fecha o lanche)\n"
+              << "  [Backspace] Desfazer ultima camada   [Enter] Entregar pedido\n"
+              << "  [0 ou ESC] Encerrar partida\n\n"
+              << "Pressione ENTER para voltar ao menu...";
+    std::string pausa;
+    std::getline(std::cin, pausa);
+}
+
+static std::string ler_nome_jogador() {
+    std::string nome;
+    while (true) {
+        std::cout << "\nDigite seu nome para registrar no historico: ";
+        if (!std::getline(std::cin, nome)) {
+            return "Jogador";
+        }
+        while (!nome.empty() && (nome.back() == '\r' || nome.back() == ' ' || nome.back() == '\t')) {
+            nome.pop_back();
+        }
+        if (!nome.empty()) {
+            return nome;
+        }
+        std::cout << "Nome invalido. Tente novamente.\n";
+    }
+}
+
+int main(int argc, char** argv) {
+    // 1) Argumentos
+    Argumentos args;
+    if (!tratar_argumentos(argc, argv, args)) return 1;
+
+    // 2) Estruturas principais
+    Avl_Pedidos             avl;
+    HashCache_Pedidos       cache;
+    ListaContigua_Historico historico;
+    inicializar_listacontigua(historico);
+
+    // 3) Carga dos arquivos e sprites
+    auto resultado_pedidos = carregar_pedidos(args.arquivo_pedidos, avl);
+    if (!resultado_pedidos.sucesso) {
+        std::cerr << "Erro ao carregar pedidos.\n";
+        return 1;
+    }
+
+    auto resultado_historico = carregar_historico(args.arquivo_historico, historico);
+    if (resultado_historico.ignoradas > 0) {
+        std::cerr << "Aviso: " << resultado_historico.ignoradas
+                  << " linha(s) do historico foram ignoradas por estarem malformadas.\n";
+    }
+
+    PacoteSprites sprites;
+    if (!carregarTodosSprites(sprites)) {
+        std::cerr << "Aviso: um ou mais sprites em assets/ nao foram encontrados.\n";
+    }
+
+    // 4) Metricas da carga + gravacao inicial do log
+    g_metricas.carregou = true;
+    g_metricas.avl_tempo_carga = resultado_pedidos.tempo_carregamento;
+    coletar_metricas_carga(avl, historico, g_metricas);
+    if (!gravar_log(g_metricas)) {
+        std::cerr << "Aviso: nao foi possivel gravar medicoes.log\n";
+    }
+
+    // 5) Loop do menu inicial
+    bool rodando = true;
+    while (rodando) {
+        OpcaoMenu opcao = mostrar_menu(sprites);
+
+        switch (opcao) {
+            case OpcaoMenu::COMO_JOGAR:
+                mostrar_como_jogar();
+                break;
+
+            case OpcaoMenu::HISTORICO:
+                telaHistorico(historico, g_metricas);
+                break;
+
+            case OpcaoMenu::NOVO_JOGO: {
+                resetar_metricas_partida(g_metricas);
+                avl.total_comparacao = 0;
+                limpar_hash(&cache);
+
+                int pontuacao = executarGameplay(avl, cache, g_metricas, sprites);
+
+                coletar_metricas_partida(avl, cache, g_metricas);
+
+                std::cout << "\033[2J\033[H"
+                          << "=== FIM DE PARTIDA ===\n"
+                          << "Pontuacao final: " << pontuacao << " pts\n\n";
+                mostrar_relatorio(g_metricas);
+                gravar_log(g_metricas);
+
+                std::string nome = ler_nome_jogador();
+                if (anexar_historico(args.arquivo_historico, nome, pontuacao)) {
+                    NodoListaContigua novo{nome, pontuacao};
+                    inserir_listacontigua(historico, novo, tamanho_listacontigua(historico));
+                    std::cout << "Pontuacao salva no historico!\n";
+                }
+
+                std::cout << "\nPressione ENTER para voltar ao menu...";
+                std::string pausa;
+                std::getline(std::cin, pausa);
+                break;
+            }
+
+            case OpcaoMenu::SAIR:
+                rodando = false;
+                break;
+        }
+    }
+
+    return 0;
+}
+==> src/timer.cpp <==
+#include "timer.hpp"
+
+void timer_iniciar (Timer* t) {
+    t -> inicio = std :: chrono :: steady_clock :: now () ;
+}
+
+double timer_parar (Timer* t) {
+    auto fim = std :: chrono :: steady_clock :: now () ;
+    return std :: chrono :: duration < double >( fim - t -> inicio ). count () ;
+}
+==> src/timer.hpp <==
+#ifndef TIMER_HPP
+#define TIMER_HPP
+#include <chrono>
+
+struct Timer { std :: chrono :: steady_clock :: time_point inicio ; };
+void timer_iniciar ( Timer *t) ;
+double timer_parar ( Timer * t) ; /* retorna tempo em segundos */
+# endif
+
+==> pedidos.txt (amostra) <==
+1
+pbtmcnz
+2
+nomosnz
+3
+stnakpz
+4
+oponcqz
+5
+tkpaqnz
