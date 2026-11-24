@@ -15,8 +15,6 @@ export struct Receita {
     unique_ptr<nodoReceita> Ini;
 };
 
-/* FUNÇÕES INTERNAS */
-
 export void inserirInicio(Receita &receita, char ingrediente) {
     auto novo = make_unique<nodoReceita>(ingrediente, std::move(receita.Ini));
     receita.Ini = std::move(novo);
