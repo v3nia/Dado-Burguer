@@ -8,7 +8,7 @@ using std::unique_ptr;
 using std::make_unique;
 using std::string;
 
-const int M = 16; //tamanho da tabela hash
+const int M = 32; //tamanho da tabela hash
 
 export{
     struct NodoHashCache {

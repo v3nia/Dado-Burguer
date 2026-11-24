@@ -3,25 +3,21 @@
 Nos inseridos: 837253
 Altura resultante: 20
 Rotacoes (insercao): 837233
-Tempo de carregamento: 5.989837 s
+Tempo de carregamento: 6.418940 s
 -- Historico: carregamento --
-Entradas carregadas: 100000
+Entradas carregadas: 100002
 -- AVL: buscas durante a partida --
-Total de buscas: 13
-Total de comparacoes: 236
-Media de comparacoes por busca: 18.15
-Tempo total acumulado: 0.000108 s
+Total de buscas: 12
+Total de comparacoes: 215
+Media de comparacoes por busca: 17.92
+Tempo medio por busca: 0.000010 s
+Tempo total acumulado: 0.000123 s
 -- Tabela hash --
 Tamanho (m): 16
-Entradas ocupadas (n): 13
-Fator de carga (lambda): 0.8125
+Entradas ocupadas (n): 12
+Fator de carga (lambda): 0.7500
 Total de hits: 0
-Total de misses: 13
+Total de misses: 12
 Taxa de acerto: 0.0%
-Total de colisoes: 5
--- Ordenacao do historico (ao acessar Historico) --
-Tamanho: 100000 entradas
-Acessos ao Historico: 2
-Merge Sort (por nome): 0.317241 s
-Merge Sort (por pontuacao): 0.248351 s
+Total de colisoes: 3
 ================================
