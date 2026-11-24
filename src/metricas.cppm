@@ -5,54 +5,48 @@ module;
 
 export module metricas;
 
-// =====================================================================
-// metricas: guarda todas as medições exigidas (seção 5 da especificação)
-// e grava o medicoes.log. Este módulo NÃO importa AVL, hash nem histórico
-// (evita dependência circular). A cópia e o cálculo das métricas
-// vindas das estruturas são feitos no módulo coleta_metricas.
-// =====================================================================
+//uso de IA (Claude) para gerar a struct de metricas e fazer as funcoes de relatorio
 
 export {
 
     struct Metricas {
-        // --- AVL: carregamento (§5.1) ---
+        //metricas da avl -- ao carregar pedidos
         long long avl_nos          = 0;
-        int       avl_altura       = 0;      // árvore vazia = 0, só raiz = 1
-        long long avl_rotacoes     = 0;      // rotação dupla = 2 simples
-        double    avl_tempo_carga   = 0.0;    // segundos
+        int       avl_altura       = 0;      //árvore vazia = 0, só raiz = 1
+        long long avl_rotacoes     = 0;      
+        double    avl_tempo_carga   = 0.0;    
 
-        // --- Histórico: contexto (§5.1) ---
+        //metricas do historico
         int       hist_entradas    = 0;
 
-        // --- AVL: buscas durante a partida (§5.2) ---
+        //metricas da avl -- depois da partida
         long long avl_buscas       = 0;
         long long avl_comparacoes  = 0;
-        double    avl_tempo_buscas  = 0.0;    // acumulado, em segundos
+        double    avl_tempo_buscas  = 0.0;    //acumulado, em segundos
 
-        // --- Tabela hash (§5.2) ---
-        int       hash_m           = 0;      // tamanho da tabela
-        long long hash_n           = 0;      // entradas ocupadas
+        //metricas da tabela hash
+        int       hash_m           = 0;      //tamanho da tabela
+        long long hash_n           = 0;      //entradas ocupadas
         long long hash_hits        = 0;
         long long hash_miss        = 0;
         long long hash_colisoes    = 0;
-        double    hash_taxa_acerto = 0.0;    // em porcentagem (0.0 a 100.0)
+        double    hash_taxa_acerto = 0.0;    //em porcentagem (0.0 a 100.0)
 
-        // --- Ordenação do histórico (atualizada a cada acesso à tela) ---
+        //ordena o historico
         int       ord_tamanho      = 0;
         int       ord_acessos      = 0;
-        double    ord_tempo_nome    = -1.0;   // -1 = ainda não medido
+        double    ord_tempo_nome    = -1.0;   //-1 = ainda não medido
         double    ord_tempo_pontos  = -1.0;
 
-        // --- controle de quais blocos já podem aparecer no log ---
-        bool      carregou        = false;  // true ao fim do carregamento
-        bool      partida_terminou = false;  // true ao encerrar a partida
+        //controle das metricas pra partida e log
+        bool      carregou        = false;  //true ao fim do carregamento
+        bool      partida_terminou = false;  //true ao encerrar a partida
     };
 
-// Instância global compartilhada por todos os módulos.
+//instância global compartilhada por todos os módulos.
 Metricas g_metricas;
 
-// Zera as métricas de partida. Chame ao INICIAR cada partida.
-// Não mexe nas métricas de carregamento nem nas de ordenação.
+//zera as metricas da partida
 void resetar_metricas_partida(Metricas& m) {
     m.avl_buscas       = 0;
     m.avl_comparacoes  = 0;
@@ -149,10 +143,7 @@ void escrever_relatorio(std::ostream& out, const Metricas& m, const char* algori
     out << "================================\n";
 }
 
-// Reescreve o medicoes.log inteiro (cria ou sobrescreve). Chame:
-//  1) após o carregamento, 2) ao fim de cada partida,
-//  3) a cada acesso à tela de Histórico.
-// Devolve false se não conseguiu abrir o arquivo.
+//cria/sobreescreve o medicoes.log
 bool gravar_log(const Metricas& m, const char* algoritmo = "Merge Sort") {
     std::ofstream out("medicoes.log");
     if (!out.is_open()) {
@@ -163,6 +154,7 @@ bool gravar_log(const Metricas& m, const char* algoritmo = "Merge Sort") {
     return true;
 }
 
+//mostra o relatorio na tela depois de cada partida
 void mostrar_relatorio(const Metricas& m, const char* algoritmo = "Merge Sort") {
     escrever_relatorio(std::cout, m, algoritmo);
 }

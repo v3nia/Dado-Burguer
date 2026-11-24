@@ -5,7 +5,9 @@ module;
 #include "timer.hpp"
 
 export module tela_historico;
-//FOI FEITO INTEIRAMENTE COM O CLAUDE - só conferi e mudei os parametros dos nomes 'padrões' para os nossos
+
+//uso de IA (Claude) para gerar a funções da tela de histórico - só conferi e mudei os parametros dos nomes 'padrões' para os nossos
+
 import TAD_lista_contigua;
 import ordenacao_merge;     
 import metricas;    // ajuste: struct Metricas e gravarLog()

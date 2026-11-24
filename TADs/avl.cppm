@@ -14,7 +14,7 @@ export{
         string receita;
         unique_ptr<NodoAvl> esq;
         unique_ptr<NodoAvl> dir;
-        int altura;   /* arvoreVazia = 0 e só raiz = 1 */
+        int altura;   //arvoreVazia = 0 e só raiz = 1
     };
     
     struct Avl_Pedidos{
@@ -65,7 +65,7 @@ export{
         else if (pedido.cod_pedido > raiz->cod_pedido)
             raiz->dir = inserir_pedido(raiz->dir, pedido, total_insercao, total_rotacao, total_comparacao, menor_cod, maior_cod);
         else
-            return std::move(raiz); //por que não pode ser só return raiz;?
+            return std::move(raiz);
 
         
         return avl_reequilibrar(raiz, total_rotacao);

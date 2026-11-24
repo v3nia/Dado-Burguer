@@ -13,6 +13,8 @@ import TAD_lista_contigua;
 using namespace std;
 using std::string;
 
+//uso de IA (Claude) para gerar a função de carregamento de pedidos e conversão de código, com base na função de carregamento de pedidos fornecida.
+
 export{
     /*-------- struct e funções da AVL -----------*/
     struct Resultado_Carregamento{
@@ -26,7 +28,6 @@ export{
     bool converter_codigo(const string& str, int& codigo);
     bool receita_valida(const string& receita);
 
-    //uso de IA (Claude) para gerar a função de carregamento de pedidos e conversão de código, com base na função de carregamento de pedidos fornecida.
     Resultado_Carregamento carregar_pedidos(const string& nome_arquivo, Avl_Pedidos& avl){
         Resultado_Carregamento resultado;
 
