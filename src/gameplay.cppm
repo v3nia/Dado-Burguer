@@ -25,7 +25,7 @@ static std::mt19937 gen(std::random_device{}());
 static uniform_int_distribution<> dis_fila(10, 20);
 static uniform_int_distribution<> dis_paciencia(15, 22);
 
-constexpr int VAL_CARNE = 7; // turnos até vencer
+constexpr int VAL_CARNE = 7; 
 constexpr int VAL_OVO   = 6;
 constexpr int VAL_BACON = 8;
 
@@ -54,7 +54,7 @@ export struct EstadoJogo {
     string feedback       = "Bem-vindo ao Dado-Burguer! Prepare os ingredientes e monte o pedido.";
 };
 
-/* ==================== FUNÇÕES AUXILIARES ==================== */
+/*  FUNÇÕES AUXILIARES  */
 
 Receita sortearReceita(Avl_Pedidos& avl, HashCache_Pedidos& cache, Metricas& metricas) {
     uniform_int_distribution<> dis(avl.menor_cod, avl.maior_cod);
@@ -270,7 +270,6 @@ int montarIngrediente(EstadoJogo& jogo, char ing) {
 
     empilhar(jogo.montagem, ing);
 
-    // Ao colocar o pão de cima ('z'), verifica automaticamente o pedido
     if (ing == 'z') {
         Cliente* atual = visualizarInicio(jogo.fila);
         if (atual != nullptr && comparar(atual->pedido, jogo.montagem)) {
@@ -362,7 +361,7 @@ void processarTecla(EstadoJogo& jogo, char tecla) {
     }
 }
 
-/* ==================== FUNÇÃO EXPORTADA ==================== */
+/*  FUNÇÃO EXPORTADA  */
 
 export int executarGameplay(Avl_Pedidos& avl,
                             HashCache_Pedidos& cache,
