@@ -43,7 +43,7 @@ sudo apt install cmake ninja-build clang clang-tools
 2. Configure e compile:
 
 ```bash
-cmake -G Ninja -B build -DCMAKE_CXX_COMPILER=clang++
+cmake -G Ninja -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 

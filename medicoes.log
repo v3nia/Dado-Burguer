@@ -1,13 +1,9 @@
 === RELATORIO DE DESEMPENHO ===
 -- AVL: carregamento --
-Nos inseridos: 5000000
-Altura resultante: 23
-Rotacoes (insercao): 4999977
-Tempo de carregamento: 75.534373 s
+Nos inseridos: 837253
+Altura resultante: 20
+Rotacoes (insercao): 837233
+Tempo de carregamento: 0.250318 s
 -- Historico: carregamento --
-Entradas carregadas: 600000
--- Ordenacao do historico (ao acessar Historico) --
-Tamanho: 600000 entradas
-Acessos ao Historico: 1
-Merge Sort (por nome): 6.552004 s
+Entradas carregadas: 100004
 ================================

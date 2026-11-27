@@ -30,9 +30,9 @@ foreach ($n in $script:ordem) {
     $pcm = "build/$($i.Base).pcm"
     $obj = "build/$($i.Base).o"
     Write-Host "== $n"
-    clang++ -std=c++20 -Isrc @flags --precompile $i.Fonte -o $pcm
+    clang++ -std=c++20 -O3 -Isrc @flags --precompile $i.Fonte -o $pcm    
     if ($LASTEXITCODE -ne 0) { throw "Falhou ao pre-compilar: $n" }
-    clang++ -std=c++20 -Isrc @flags -c $pcm -o $obj
+    clang++ -std=c++20 -O3 -Isrc @flags -c $pcm -o $obj
     if ($LASTEXITCODE -ne 0) { throw "Falhou ao compilar: $n" }
     $flags += "-fmodule-file=$n=$pcm"
     $objs += $obj
@@ -40,9 +40,9 @@ foreach ($n in $script:ordem) {
 
 # 4) timer, main e ligacao
 Write-Host "== timer e main"
-clang++ -std=c++20 -Isrc -c src/timer.cpp -o build/timer.o
+clang++ -std=c++20 -O3 -Isrc -c src/timer.cpp -o build/timer.o
 if ($LASTEXITCODE -ne 0) { throw "Falhou: timer.cpp" }
-clang++ -std=c++20 -Isrc @flags -c src/main.cpp -o build/main.o
+clang++ -std=c++20 -O3 -Isrc @flags -c src/main.cpp -o build/main.o
 if ($LASTEXITCODE -ne 0) { throw "Falhou: main.cpp" }
 clang++ build/main.o build/timer.o @objs -o build/dado_burger.exe
 if ($LASTEXITCODE -ne 0) { throw "Falhou na ligacao" }
